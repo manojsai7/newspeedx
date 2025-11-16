@@ -1,41 +1,76 @@
 from os import environ
+from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
+def _require(name: str) -> str:
+    value = environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(
+            f"Missing required environment variable '{name}'. "
+            "Create your own credentials via @BotFather / my.telegram.org and set them before starting Megatron."
+        )
+    return value
+
+
+def _optional(name: str, default: Optional[str] = None) -> Optional[str]:
+    value = environ.get(name)
+    if value is None:
+        return default
+    stripped = value.strip()
+    return stripped if stripped else default
+
+
+def _as_int(value: Optional[str], default: int = 0) -> int:
+    if value is None or value == "":
+        return default
+    return int(value)
+
+
+def _as_bool(value: Optional[str], default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Var(object):
     MULTI_CLIENT = False
-    API_ID = int(environ.get("API_ID","7326452"))
-    API_HASH = str(environ.get("API_HASH","a865401e13d06664d7ffa3558f8e2940"))
-    SESSION_NAME = str(environ.get('SESSION_NAME', 'AvishkarPatil'))
-    BOT_TOKEN = str(environ.get("BOT_TOKEN","1940498592:AAENjs-8x0m_nXmapmMIjMjXHK0aaC0kuTI" ))
-    BROADCAST_AS_COPY = bool(environ.get("BROADCAST_AS_COPY", False))
-    SLEEP_THRESHOLD = int(environ.get("SLEEP_THRESHOLD", "60"))  # 1 minte
-    WORKERS = int(environ.get("WORKERS", "6"))  # 6 workers = 6 commands at once
-    BIN_CHANNEL = int(
-        environ.get("BIN_CHANNEL", "-1001536023432")
-    )  # you NEED to use a CHANNEL when you're using MULTI_CLIENT
-    PORT = int(environ.get("PORT", 8080))
-    BIND_ADDRESS = str(environ.get("WEB_SERVER_BIND_ADDRESS", "0.0.0.0"))
-    PING_INTERVAL = int(environ.get("PING_INTERVAL", "1200"))  # 20 minutes
-    HAS_SSL = environ.get("HAS_SSL", False)
-    HAS_SSL = True if str(HAS_SSL).lower() == "true" else False
-    OWNER_ID = int(environ.get('OWNER_ID' , "1913411555"))
-    NO_PORT = environ.get("NO_PORT", False)
-    NO_PORT = True if str(NO_PORT).lower() == "true" else False
+    API_ID = _as_int(_require("API_ID"))
+    API_HASH = _require("API_HASH")
+    SESSION_NAME = _optional('SESSION_NAME', 'MegatronBot')
+    BOT_TOKEN = _require("BOT_TOKEN")
+    BROADCAST_AS_COPY = _as_bool(_optional("BROADCAST_AS_COPY"))
+    SLEEP_THRESHOLD = _as_int(_optional("SLEEP_THRESHOLD", "60"), 60)
+    WORKERS = _as_int(_optional("WORKERS", "6"), 6)
+    BIN_CHANNEL = _as_int(_require("BIN_CHANNEL"))  # mandatory for uploads
+    PORT = _as_int(_optional("PORT", "8080"), 8080)
+    BIND_ADDRESS = _optional("WEB_SERVER_BIND_ADDRESS", "0.0.0.0")
+    PING_INTERVAL = _as_int(_optional("PING_INTERVAL", "1200"), 1200)
+    HAS_SSL = _as_bool(_optional("HAS_SSL"))
+    OWNER_ID = _as_int(_require('OWNER_ID'))
+    NO_PORT = _as_bool(_optional("NO_PORT"))
     if "DYNO" in environ:
         ON_HEROKU = True
-        APP_NAME = str(environ.get("APP_NAME", "SpeedXstreamz"))
+        APP_NAME = _optional("APP_NAME", "megatron")
     else:
         ON_HEROKU = False
-    DATABASE_URL = str(environ.get('DATABASE_URL'))
-    UPDATES_CHANNEL = environ.get("UPDATES_CHANNEL", None)
-    BANNED_CHANNELS = list(set(int(x) for x in str(environ.get("BANNED_CHANNELS", "-100")).split()))
+        APP_NAME = None
+    DATABASE_URL = _optional('DATABASE_URL')
+    UPDATES_CHANNEL = _optional("UPDATES_CHANNEL")
+    BANNED_CHANNELS = list(
+        set(
+            int(x)
+            for x in str(_optional("BANNED_CHANNELS", "-100")).split()
+            if x
+        )
+    )
     FQDN = (
-        str(environ.get("FQDN", BIND_ADDRESS))
-        if not ON_HEROKU or environ.get("FQDN")
-        else APP_NAME + ".herokuapp.com"
+        str(_optional("FQDN", BIND_ADDRESS))
+        if not ON_HEROKU or _optional("FQDN")
+        else f"{APP_NAME}.herokuapp.com"
     )
     if ON_HEROKU:
         URL = f"https://{FQDN}/"
