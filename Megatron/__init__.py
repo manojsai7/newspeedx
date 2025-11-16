@@ -1,5 +1,13 @@
 import time
-from pyrogram.errors import AccessTokenExpired, BadMsgNotification
+from pyrogram.errors import (
+    AccessTokenExpired,
+    BadMsgNotification,
+    ChannelInvalid,
+    ChatAdminRequired,
+    ChatWriteForbidden,
+    PeerIdInvalid,
+    UserNotParticipant,
+)
 
 from .vars import Var
 from Megatron.bot.clients import StreamBot
@@ -42,8 +50,51 @@ def _start_stream_bot_with_guard(max_retries: int = 3) -> None:
             ) from exc
 
 
+def _ensure_bin_channel_binding(bot_id: int) -> None:
+    channel = Var.BIN_CHANNEL
+    try:
+        StreamBot.get_chat(channel)
+    except (PeerIdInvalid, ChannelInvalid) as exc:
+        raise RuntimeError(
+            "BIN_CHANNEL is invalid. Double-check the numeric ID (it must start with -100) "
+            "or use @userinfobot to fetch the correct value."
+        ) from exc
+
+    try:
+        member = StreamBot.get_chat_member(channel, bot_id)
+    except UserNotParticipant as exc:
+        raise RuntimeError(
+            "The bot isn't a member of BIN_CHANNEL. Add it to the channel and promote it to admin."
+        ) from exc
+    except ChatAdminRequired as exc:
+        raise RuntimeError(
+            "Megatron needs admin privileges in BIN_CHANNEL to forward files. Grant Post Messages permission."
+        ) from exc
+
+    if member.status not in ("administrator", "creator"):
+        raise RuntimeError(
+            "Megatron must be an admin in BIN_CHANNEL. Promote it or update BIN_CHANNEL to a channel where it is admin."
+        )
+
+    try:
+        ping = StreamBot.send_message(
+            channel,
+            "🛠 Megatron verified BIN_CHANNEL access (message auto-deleted).",
+            disable_notification=True,
+        )
+        try:
+            StreamBot.delete_messages(channel, ping.message_id)
+        except ChatAdminRequired:
+            pass
+    except ChatWriteForbidden as exc:
+        raise RuntimeError(
+            "Megatron cannot post in BIN_CHANNEL. Allow Post Messages permission and retry."
+        ) from exc
+
+
 _start_stream_bot_with_guard()
 
 bot_info = StreamBot.get_me()
+_ensure_bin_channel_binding(bot_info.id)
 __version__ = 2.2
 StartTime = time.time()

@@ -22,3 +22,11 @@ Before running or deploying the bot you **must** provide your own Telegram crede
 
 Copy `.env.example` to `.env` (or configure your hosting provider) and fill in the required values before starting the bot.
 
+### Channel setup checklist
+
+1. Create (or pick) a Telegram channel that will store the uploaded files.
+2. Add your bot to that channel and promote it to **admin** with “Post Messages” permission.
+3. Copy the channel ID using `@userinfobot`/`RawDataBot` (numeric IDs start with `-100`).
+4. Set `BIN_CHANNEL` to that numeric ID in `.env` or your hosting secrets.
+5. Redeploy/restart Megatron. The startup guard now verifies the channel and will fail fast with a descriptive error if access is missing.
+
