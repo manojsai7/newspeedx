@@ -51,6 +51,9 @@ def _start_stream_bot_with_guard(max_retries: int = 3) -> None:
 
 
 def _ensure_bin_channel_binding(bot_id: int) -> None:
+    if getattr(Var, "SKIP_BIN_VALIDATION", False):
+        print("[StreamBot] SKIP_BIN_VALIDATION is set; proceeding without verifying BIN_CHANNEL access.")
+        return
     channel = Var.BIN_CHANNEL
     try:
         StreamBot.get_chat(channel)

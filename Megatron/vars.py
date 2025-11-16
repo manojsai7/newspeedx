@@ -56,7 +56,7 @@ class Var(object):
     MULTI_CLIENT = False
     API_ID = _as_int(_require("API_ID"))
     API_HASH = _require("API_HASH")
-    SESSION_NAME = _optional('SESSION_NAME', 'MegatronBot')
+    SESSION_NAME = _optional('SESSION_NAME', 'AvishkarPatil')
     BOT_TOKEN = _require("BOT_TOKEN")
     BROADCAST_AS_COPY = _as_bool(_optional("BROADCAST_AS_COPY"))
     SLEEP_THRESHOLD = _as_int(_optional("SLEEP_THRESHOLD", "60"), 60)
@@ -68,6 +68,7 @@ class Var(object):
     HAS_SSL = _as_bool(_optional("HAS_SSL"))
     OWNER_ID = _as_int(_require('OWNER_ID'))
     NO_PORT = _as_bool(_optional("NO_PORT"))
+    SKIP_BIN_VALIDATION = _as_bool(_optional("SKIP_BIN_VALIDATION"))
     if "DYNO" in environ:
         ON_HEROKU = True
         APP_NAME = _optional("APP_NAME", "megatron")
