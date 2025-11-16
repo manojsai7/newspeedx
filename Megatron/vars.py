@@ -1,5 +1,5 @@
 from os import environ
-from typing import Optional
+from typing import Optional, Union
 
 from dotenv import load_dotenv
 
@@ -36,6 +36,22 @@ def _as_bool(value: Optional[str], default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _parse_channel(value: str) -> Union[int, str]:
+    cleaned = value.strip()
+    if not cleaned:
+        raise RuntimeError("BIN_CHANNEL cannot be empty.")
+    if cleaned.startswith("@"):
+        return cleaned
+    if cleaned.startswith("-") and cleaned[1:].isdigit():
+        return int(cleaned)
+    if cleaned.isdigit():
+        return int(cleaned)
+    raise RuntimeError(
+        "BIN_CHANNEL must be either a numeric Telegram channel ID (starting with -100) "
+        "or a public username beginning with @"
+    )
+
+
 class Var(object):
     MULTI_CLIENT = False
     API_ID = _as_int(_require("API_ID"))
@@ -45,7 +61,7 @@ class Var(object):
     BROADCAST_AS_COPY = _as_bool(_optional("BROADCAST_AS_COPY"))
     SLEEP_THRESHOLD = _as_int(_optional("SLEEP_THRESHOLD", "60"), 60)
     WORKERS = _as_int(_optional("WORKERS", "6"), 6)
-    BIN_CHANNEL = _as_int(_require("BIN_CHANNEL"))  # mandatory for uploads
+    BIN_CHANNEL = _parse_channel(_require("BIN_CHANNEL"))  # mandatory for uploads
     PORT = _as_int(_optional("PORT", "8080"), 8080)
     BIND_ADDRESS = _optional("WEB_SERVER_BIND_ADDRESS", "0.0.0.0")
     PING_INTERVAL = _as_int(_optional("PING_INTERVAL", "1200"), 1200)

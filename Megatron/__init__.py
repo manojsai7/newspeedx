@@ -54,10 +54,10 @@ def _ensure_bin_channel_binding(bot_id: int) -> None:
     channel = Var.BIN_CHANNEL
     try:
         StreamBot.get_chat(channel)
-    except (PeerIdInvalid, ChannelInvalid) as exc:
+    except (PeerIdInvalid, ChannelInvalid, ValueError) as exc:
         raise RuntimeError(
             "BIN_CHANNEL is invalid. Double-check the numeric ID (it must start with -100) "
-            "or use @userinfobot to fetch the correct value."
+            "or use @userinfobot / @RawDataBot to fetch the correct value."
         ) from exc
 
     try:
