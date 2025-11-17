@@ -157,22 +157,57 @@ async def fsub_control(_, m: Message):
                 # Check if bot is admin
                 try:
                     bot_member = await StreamBot.get_chat_member(chat.id, "me")
-                    if bot_member.status not in ["administrator", "creator"]:
+                    # Handle both string status and enum status
+                    status_str = str(bot_member.status).split('.')[-1].lower() if hasattr(bot_member.status, 'name') else str(bot_member.status).lower()
+                    
+                    if status_str not in ["administrator", "creator"]:
                         await m.reply_text(
                             f"❌ **Bot is not admin!**\n\n"
                             f"Please make the bot an admin in **{chat.title}** with:\n"
                             f"• Ban users permission\n"
-                            f"• Invite users permission",
+                            f"• Invite users permission\n\n"
+                            f"**Current status:** {status_str}",
                             parse_mode=enums.ParseMode.MARKDOWN
                         )
+                        logging.warning(f"Bot is not admin in channel {chat.id} ({chat.title}). Current status: {status_str}")
                         return
+                    
+                    # Verify required permissions
+                    if status_str == "administrator":
+                        if not (bot_member.privileges and 
+                                bot_member.privileges.can_restrict_members and 
+                                bot_member.privileges.can_invite_users):
+                            await m.reply_text(
+                                f"❌ **Bot lacks required permissions!**\n\n"
+                                f"Please ensure the bot has:\n"
+                                f"• Ban users permission (can_restrict_members)\n"
+                                f"• Invite users permission (can_invite_users)\n\n"
+                                f"**Current permissions:**\n"
+                                f"  - Restrict members: {getattr(bot_member.privileges, 'can_restrict_members', False)}\n"
+                                f"  - Invite users: {getattr(bot_member.privileges, 'can_invite_users', False)}",
+                                parse_mode=enums.ParseMode.MARKDOWN
+                            )
+                            logging.warning(f"Bot lacks required permissions in channel {chat.id} ({chat.title})")
+                            return
+                            
+                except ChatAdminRequired:
+                    await m.reply_text(
+                        f"❌ **Bot is not admin!**\n\n"
+                        f"Please make the bot an admin in **{chat.title}** with:\n"
+                        f"• Ban users permission\n"
+                        f"• Invite users permission",
+                        parse_mode=enums.ParseMode.MARKDOWN
+                    )
+                    logging.error(f"ChatAdminRequired error for channel {chat.id} ({chat.title})")
+                    return
                 except Exception as e:
                     await m.reply_text(
                         f"❌ **Can't check bot permissions!**\n\n"
-                        f"Error: {e}\n\n"
+                        f"Error: {str(e)[:200]}\n\n"
                         f"Make sure bot is admin in the channel.",
                         parse_mode=enums.ParseMode.MARKDOWN
                     )
+                    logging.error(f"Error checking bot permissions in channel {chat.id}: {e}")
                     return
                 
                 # Enable force subscribe
