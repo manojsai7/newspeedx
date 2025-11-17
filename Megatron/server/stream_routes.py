@@ -49,8 +49,9 @@ async def stream_handler(request: web.Request):
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:
         raise web.HTTPNotFound(text=e.message)
-    except (AttributeError, BadStatusLine, ConnectionResetError):
-        pass
+    except (AttributeError, BadStatusLine, ConnectionResetError) as e:
+        logging.warning(f"Connection error in stream handler: {e}")
+        raise web.HTTPBadRequest(text="Invalid request or connection error")
     except Exception as e:
         logging.critical(e.with_traceback(None))
         raise web.HTTPInternalServerError(text=str(e))
