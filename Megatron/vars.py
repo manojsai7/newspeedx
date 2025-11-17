@@ -83,11 +83,19 @@ class Var(object):
     NO_PORT = _as_bool(_optional("NO_PORT"))
     MAX_LOGIN_FLOODWAIT = _as_int(_optional("MAX_LOGIN_FLOODWAIT", "900"), 900)
     LOGIN_FLOODWAIT_PADDING = _as_int(_optional("LOGIN_FLOODWAIT_PADDING", "5"), 5)
+    
+    # Detect platform
     if "DYNO" in environ:
         ON_HEROKU = True
+        ON_KOYEB = False
         APP_NAME = _optional("APP_NAME", "megatron")
+    elif "KOYEB_PUBLIC_DOMAIN" in environ or "KOYEB_DEPLOYMENT_ID" in environ:
+        ON_HEROKU = False
+        ON_KOYEB = True
+        APP_NAME = _optional("APP_NAME")  # Optional for Koyeb
     else:
         ON_HEROKU = False
+        ON_KOYEB = False
         APP_NAME = None
     DATABASE_URL = _optional('DATABASE_URL')
     UPDATES_CHANNEL = _parse_optional_channel("UPDATES_CHANNEL")
@@ -98,12 +106,21 @@ class Var(object):
             if x
         )
     )
-    FQDN = (
-        str(_optional("FQDN", BIND_ADDRESS))
-        if not ON_HEROKU or _optional("FQDN")
-        else f"{APP_NAME}.herokuapp.com"
-    )
-    if ON_HEROKU:
+    # Auto-detect FQDN based on platform
+    if ON_KOYEB:
+        # Koyeb provides KOYEB_PUBLIC_DOMAIN automatically
+        FQDN = _optional("FQDN") or _optional("KOYEB_PUBLIC_DOMAIN") or _optional("KOYEB_APP_DOMAIN") or BIND_ADDRESS
+        if not HAS_SSL and FQDN != BIND_ADDRESS:
+            HAS_SSL = True  # Koyeb always uses HTTPS
+        if not NO_PORT and FQDN != BIND_ADDRESS:
+            NO_PORT = True  # Koyeb handles port mapping
+    elif ON_HEROKU:
+        FQDN = _optional("FQDN") or (f"{APP_NAME}.herokuapp.com" if APP_NAME else BIND_ADDRESS)
+    else:
+        FQDN = _optional("FQDN", BIND_ADDRESS)
+    
+    # Build URL based on platform
+    if ON_HEROKU or ON_KOYEB:
         URL = f"https://{FQDN}/"
     else:
         URL = "http{}://{}{}/".format(
