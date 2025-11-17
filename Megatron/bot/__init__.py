@@ -52,25 +52,7 @@ def _patched_client_init(self, *args, **kwargs):
 # Apply the patch only once
 if Client.__init__ is not _patched_client_init:
     Client.__init__ = _patched_client_init
-
-
-# Patch pyromod's own helper to avoid KeyError guards deep inside the library
-try:  # pragma: no cover - only runs when pyromod is installed
-    from pyromod.listen import client as _pyromod_listen_client  # type: ignore[import]
-
-    _original_get_listener = _pyromod_listen_client.Client.get_listener_matching_with_data
-
-    def _patched_get_listener_matching_with_data(self, data, listener_type):
-        store = _ensure_listener_store(self)
-        listeners = store[listener_type]  # defaultdict will auto-initialize
-        if not listeners:
-            # Lazy log to help debugging rare edge-cases
-            print(f"[PYROMOD_FIX] Auto-created listener bucket for {listener_type}")
-        return _original_get_listener(self, data, listener_type)
-
-    _pyromod_listen_client.Client.get_listener_matching_with_data = _patched_get_listener_matching_with_data
-except Exception as patch_err:  # pragma: no cover - best-effort patching
-    print(f"[PYROMOD_FIX] Could not patch pyromod listener lookup: {patch_err}")
+    print("[PYROMOD_FIX] ✓ Client.__init__ patched successfully")
 
 StreamBot = Client(
     name=Var.SESSION_NAME,
