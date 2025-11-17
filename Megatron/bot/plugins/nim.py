@@ -1,7 +1,6 @@
 import asyncio
 from requests import post
 
-from pyromod import listen  # type: ignore
 from pyrogram import Client, filters
 from pyrogram.errors import UserNotParticipant
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
