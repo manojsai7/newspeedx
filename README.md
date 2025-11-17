@@ -19,6 +19,7 @@ Before running or deploying the bot you **must** provide your own Telegram crede
 | `OWNER_ID` | ✅ | Numeric Telegram user ID used for admin operations |
 | `DATABASE_URL` | optional | MongoDB/Postgres connection string for persistence |
 | `SESSION_NAME` | optional | Custom Pyrogram session filename (defaults to `MegatronBot`) |
+| `PORT` | optional | TCP port for the aiohttp server (defaults to `8000`; set it to whatever your platform expects) |
 | `HAS_SSL`, `NO_PORT`, etc. | optional | Advanced hosting/network toggles |
 | `MAX_LOGIN_FLOODWAIT` | optional | Upper bound (in seconds) Megatron will wait when Telegram throttles bot logins (defaults to 900) |
 | `SKIP_BIN_VALIDATION` | optional | Set to `true` only if you understand the risks and want to bypass BIN channel checks (not recommended) |

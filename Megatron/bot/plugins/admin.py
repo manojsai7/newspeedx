@@ -3,7 +3,7 @@ import time
 import string
 import random
 import asyncio
-import aiofiles
+import aiofiles  # type: ignore
 import datetime
 import traceback
 
@@ -13,6 +13,7 @@ from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, Peer
 
 from Megatron.bot import StreamBot
 from Megatron.vars import Var
+from Megatron.utils import not_edited
 from Megatron.utils.broadcast_helper import send_msg
 from Megatron.utils.database import Database
  
@@ -22,7 +23,7 @@ db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
 broadcast_ids = {}
 
 
-@StreamBot.on_message(filters.command("status") & filters.private & filters.user(Var.OWNER_ID) & ~filters.edited)
+@StreamBot.on_message(filters.command("status") & filters.private & filters.user(Var.OWNER_ID) & not_edited)
 async def sts(c: Client, m: Message):
     total_users = await db.total_users_count()
     await m.reply_text(text=f"**Total Users in Database:** `{total_users}`", parse_mode="Markdown", quote=True)

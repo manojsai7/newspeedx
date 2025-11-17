@@ -64,7 +64,8 @@
           "required": false
       },
       "PORT": {
-          "description": "Port that you want your webapp to be listened to.",
+          "description": "Port that you want your webapp to be listened to (defaults to 8000 for Koyeb health checks).",
+          "value": "8000",
           "required": false
       },
       "NO_PORT": {

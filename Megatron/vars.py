@@ -72,7 +72,7 @@ class Var(object):
     SLEEP_THRESHOLD = _as_int(_optional("SLEEP_THRESHOLD", "60"), 60)
     WORKERS = _as_int(_optional("WORKERS", "6"), 6)
     BIN_CHANNEL = _parse_channel(_require("BIN_CHANNEL"))  # mandatory for uploads
-    PORT = _as_int(_optional("PORT", "8080"), 8080)
+    PORT = _as_int(_optional("PORT", "8000"), 8000)
     BIND_ADDRESS = _optional("WEB_SERVER_BIND_ADDRESS", "0.0.0.0")
     PING_INTERVAL = _as_int(_optional("PING_INTERVAL", "1200"), 1200)
     HAS_SSL = _as_bool(_optional("HAS_SSL"))
