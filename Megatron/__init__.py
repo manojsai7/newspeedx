@@ -85,43 +85,57 @@ def _ensure_bin_channel_binding(bot_id: int) -> None:
         print("[StreamBot] SKIP_BIN_VALIDATION is set; proceeding without verifying BIN_CHANNEL access.")
         return
     channel = Var.BIN_CHANNEL
+    print(f"[BIN_CHANNEL] Validating access to channel ID: {channel}")
+    
     try:
-        StreamBot.get_chat(channel)
+        chat_info = StreamBot.get_chat(channel)
+        print(f"[BIN_CHANNEL] ✓ Chat accessible: {chat_info.title} (type={chat_info.type})")
     except (PeerIdInvalid, ChannelInvalid, ValueError) as exc:
+        print(f"[BIN_CHANNEL] ✗ Chat lookup failed: {exc}")
         raise RuntimeError(
-            "BIN_CHANNEL is invalid. Double-check the numeric ID (it must start with -100) "
-            "or use @userinfobot / @RawDataBot to fetch the correct value."
+            f"BIN_CHANNEL={channel} is invalid or inaccessible. Double-check the numeric ID (must start with -100). "
+            "Use @userinfobot or @RawDataBot in the channel to confirm."
         ) from exc
 
     try:
         member = StreamBot.get_chat_member(channel, bot_id)
+        print(f"[BIN_CHANNEL] Bot membership status: {member.status}")
     except UserNotParticipant as exc:
+        print(f"[BIN_CHANNEL] ✗ Bot is not a participant: {exc}")
         raise RuntimeError(
-            "The bot isn't a member of BIN_CHANNEL. Add it to the channel and promote it to admin."
+            f"The bot (ID={bot_id}) isn't a member of BIN_CHANNEL={channel}. "
+            "Add it to the channel and promote it to admin with 'Post Messages' permission."
         ) from exc
     except ChatAdminRequired as exc:
+        print(f"[BIN_CHANNEL] ✗ Admin check failed: {exc}")
         raise RuntimeError(
             "Megatron needs admin privileges in BIN_CHANNEL to forward files. Grant Post Messages permission."
         ) from exc
 
     if member.status not in ("administrator", "creator"):
+        print(f"[BIN_CHANNEL] ✗ Insufficient privileges: current status is '{member.status}', need 'administrator' or 'creator'")
         raise RuntimeError(
-            "Megatron must be an admin in BIN_CHANNEL. Promote it or update BIN_CHANNEL to a channel where it is admin."
+            f"Megatron must be an admin in BIN_CHANNEL={channel}. Current status: {member.status}. "
+            "Promote the bot to administrator with 'Post Messages' enabled."
         )
 
+    print(f"[BIN_CHANNEL] ✓ Bot has {member.status} privileges. Testing post capability...")
     try:
         ping = StreamBot.send_message(
             channel,
             "🛠 Megatron verified BIN_CHANNEL access (message auto-deleted).",
             disable_notification=True,
         )
+        print(f"[BIN_CHANNEL] ✓ Test message posted (msg_id={ping.message_id})")
         try:
             StreamBot.delete_messages(channel, ping.message_id)
+            print("[BIN_CHANNEL] ✓ Test message deleted. Validation complete.")
         except ChatAdminRequired:
-            pass
+            print("[BIN_CHANNEL] ⚠ Could not delete test message (missing delete permission), but post works.")
     except ChatWriteForbidden as exc:
+        print(f"[BIN_CHANNEL] ✗ Cannot post messages: {exc}")
         raise RuntimeError(
-            "Megatron cannot post in BIN_CHANNEL. Allow Post Messages permission and retry."
+            "Megatron cannot post in BIN_CHANNEL. Ensure 'Post Messages' permission is enabled and retry."
         ) from exc
 
 
