@@ -96,10 +96,50 @@ async def fsub_control(_, m: Message):
             
             try:
                 # Try to get the chat
-                if channel_input.startswith('@'):
-                    channel_input = channel_input[1:]  # Remove @
+                channel_id = None
                 
-                chat = await StreamBot.get_chat(channel_input)
+                # Check if it's a numeric ID
+                if channel_input.startswith('-'):
+                    try:
+                        channel_id = int(channel_input)
+                    except ValueError:
+                        await m.reply_text(
+                            "❌ **Invalid channel ID format!**\n\n"
+                            "Channel IDs must be numeric (e.g., -1001234567890)",
+                            parse_mode=enums.ParseMode.MARKDOWN
+                        )
+                        return
+                else:
+                    # Remove @ if present
+                    if channel_input.startswith('@'):
+                        channel_input = channel_input[1:]
+                
+                # Try to get the chat
+                try:
+                    chat = await StreamBot.get_chat(channel_input if not channel_id else channel_id)
+                except (ChannelInvalid, UsernameInvalid) as e:
+                    await m.reply_text(
+                        f"❌ **Cannot find channel!**\n\n"
+                        f"Input: `{channel_input if not channel_id else channel_id}`\n"
+                        f"Error: {str(e)}\n\n"
+                        f"**Make sure:**\n"
+                        f"• Channel exists\n"
+                        f"• Bot has access to the channel\n"
+                        f"• Username is correct (no spaces)\n"
+                        f"• Channel ID starts with -100",
+                        parse_mode=enums.ParseMode.MARKDOWN
+                    )
+                    logging.error(f"Failed to find channel {channel_input if not channel_id else channel_id}: {e}")
+                    return
+                except Exception as e:
+                    await m.reply_text(
+                        f"❌ **Unexpected error!**\n\n"
+                        f"Error: {str(e)[:200]}\n\n"
+                        f"Please try again or contact support.",
+                        parse_mode=enums.ParseMode.MARKDOWN
+                    )
+                    logging.error(f"Unexpected error getting chat {channel_input if not channel_id else channel_id}: {e}")
+                    return
                 
                 # Check if it's a channel
                 if chat.type not in ["channel", "supergroup"]:

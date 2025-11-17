@@ -29,7 +29,7 @@ async def initialize_clients():
             StreamBot.listeners = {}
         for listener_type in ListenerTypes:
             if listener_type not in StreamBot.listeners:
-                StreamBot.listeners[listener_type] = []
+                StreamBot.listeners[listener_type] = {}  # DICT not list!
     
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
@@ -53,7 +53,7 @@ async def initialize_clients():
                 instance.listeners = {}
             for listener_type in ListenerTypes:
                 if listener_type not in instance.listeners:
-                    instance.listeners[listener_type] = []
+                    instance.listeners[listener_type] = {}  # DICT not list!
         
         try:
             multi_clients[client_id] = await instance.start()

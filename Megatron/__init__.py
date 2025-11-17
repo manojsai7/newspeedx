@@ -144,12 +144,6 @@ def _ensure_bin_channel_binding(bot_id: int) -> None:
 
 _start_stream_bot_with_guard()
 
-# Initialize pyromod listeners properly after client starts
-from pyromod.listen.listen import ListenerTypes
-if not hasattr(StreamBot, 'listeners') or not isinstance(StreamBot.listeners, dict):
-    StreamBot.listeners = {listener_type: {} for listener_type in ListenerTypes}
-    print("[StreamBot] ✓ Initialized pyromod listeners dictionary")
-
 bot_info = StreamBot.get_me()
 _ensure_bin_channel_binding(bot_info.id)
 __version__ = 2.2
