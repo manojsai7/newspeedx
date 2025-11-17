@@ -27,6 +27,9 @@ async def initialize_clients():
     if ListenerTypes:
         if not hasattr(StreamBot, 'listeners'):
             StreamBot.listeners = {}
+        elif not isinstance(StreamBot.listeners, dict):
+            StreamBot.listeners = {}
+            
         for listener_type in ListenerTypes:
             if listener_type not in StreamBot.listeners:
                 StreamBot.listeners[listener_type] = {}  # DICT not list!
@@ -51,6 +54,9 @@ async def initialize_clients():
         if ListenerTypes:
             if not hasattr(instance, 'listeners'):
                 instance.listeners = {}
+            elif not isinstance(instance.listeners, dict):
+                instance.listeners = {}
+                
             for listener_type in ListenerTypes:
                 if listener_type not in instance.listeners:
                     instance.listeners[listener_type] = {}  # DICT not list!
