@@ -7,6 +7,7 @@ class Database:
         self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
         self.db = self._client[database_name]
         self.col = self.db.users
+        self.settings = self.db.settings
 
     def new_user(self, id):
         return dict(
@@ -32,3 +33,24 @@ class Database:
 
     async def delete_user(self, user_id):
         await self.col.delete_many({'id': int(user_id)})
+
+    # Force Subscribe Settings
+    async def get_fsub_settings(self):
+        """Get force subscribe settings"""
+        settings = await self.settings.find_one({'_id': 'fsub'})
+        if not settings:
+            return {'enabled': False, 'channel': None}
+        return settings
+
+    async def set_fsub(self, enabled: bool, channel: int = None):
+        """Enable or disable force subscribe"""
+        await self.settings.update_one(
+            {'_id': 'fsub'},
+            {'$set': {'enabled': enabled, 'channel': channel}},
+            upsert=True
+        )
+
+    async def get_fsub_channel(self):
+        """Get force subscribe channel ID"""
+        settings = await self.get_fsub_settings()
+        return settings.get('channel') if settings.get('enabled') else None

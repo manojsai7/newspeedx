@@ -54,12 +54,28 @@ async def button(bot, cmd: CallbackQuery):
             disable_web_page_preview=True,
         )
     elif cb_data.startswith("ban_"):
+        if cmd.from_user.id != Var.OWNER_ID:
+            await cmd.answer("Only bot owner can ban users!", show_alert=True)
+            return
         if Var.UPDATES_CHANNEL is None:
             await cmd.answer("You didn't Set any Updates Channel", show_alert=True)
             return
         try:
             user_id = cb_data.split("_", 1)[1]
             await bot.ban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=int(user_id))
-            await cmd.answer("User Banned from Updates Channel", show_alert=True)
+            await cmd.answer("User Banned from Updates Channel ✅", show_alert=True)
         except Exception as e:
-            await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
+            await cmd.answer(f"Can't Ban User!\n\nError: {e}", show_alert=True)
+    elif cb_data.startswith("unban_"):
+        if cmd.from_user.id != Var.OWNER_ID:
+            await cmd.answer("Only bot owner can unban users!", show_alert=True)
+            return
+        if Var.UPDATES_CHANNEL is None:
+            await cmd.answer("You didn't Set any Updates Channel", show_alert=True)
+            return
+        try:
+            user_id = cb_data.split("_", 1)[1]
+            await bot.unban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=int(user_id))
+            await cmd.answer("User Unbanned from Updates Channel ✅", show_alert=True)
+        except Exception as e:
+            await cmd.answer(f"Can't Unban User!\n\nError: {e}", show_alert=True)

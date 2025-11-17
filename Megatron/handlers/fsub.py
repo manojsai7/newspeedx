@@ -5,16 +5,34 @@ from pyrogram.errors import FloodWait, UserNotParticipant
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from Megatron.vars import Var
+from Megatron.utils.database import Database
 from Megatron.utils.callbacks import *
 
+db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
+
 async def force_subscribe(bot, cmd):
+    """
+    Force subscribe handler - supports both static (env var) and dynamic (database) channels
+    Priority: Database settings > Environment variable
+    """
+    # Check database settings first (dynamic fsub)
+    fsub_channel = await db.get_fsub_channel()
+    
+    # Fall back to environment variable if database not configured
+    if fsub_channel is None:
+        fsub_channel = Var.UPDATES_CHANNEL
+    
+    # If no channel configured anywhere, skip fsub
+    if fsub_channel is None:
+        return 200
+    
     try:
-        invite_link = await bot.create_chat_invite_link(Var.UPDATES_CHANNEL)
+        invite_link = await bot.create_chat_invite_link(fsub_channel)
     except FloodWait as e:
         await asyncio.sleep(e.x)
         return 400
     try:
-        user = await bot.get_chat_member(Var.UPDATES_CHANNEL, cmd.from_user.id)
+        user = await bot.get_chat_member(fsub_channel, cmd.from_user.id)
         if user.status == "kicked":
             await bot.send_message(
                 chat_id=cmd.from_user.id,

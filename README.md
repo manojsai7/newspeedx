@@ -67,7 +67,7 @@ In Koyeb's **Environment Variables** section, add these:
 | `APP_NAME` | `megatron-bot` | Custom name for logs (optional) |
 | `PORT` | `8000` | Web server port (default: 8000) |
 | `DATABASE_URL` | `mongodb+srv://...` | MongoDB connection string for user tracking |
-| `UPDATES_CHANNEL` | `-1001234567890` | Force users to join your channel before using bot |
+| `UPDATES_CHANNEL` | `-1001234567890` | **Optional.** Force users to join your channel before using bot. Can also be set dynamically with `/fsub` command (no restart needed) |
 
 **Note:** You do NOT need to set `HAS_SSL` or `NO_PORT` for Koyeb - they're auto-detected!
 
@@ -200,3 +200,40 @@ DATABASE_URL=mongodb+srv://user:pass@cluster.mongodb.net/
 UPDATES_CHANNEL=-1001234567890
 APP_NAME=megatron-filebot
 ```
+
+---
+
+## Bot Owner Commands
+
+### Dynamic Force Subscribe Control
+
+Control force subscribe without restarting the bot! Requires `DATABASE_URL` to be configured.
+
+**Enable force subscribe:**
+```
+/fsub on @your_channel
+/fsub on -1001234567890
+```
+
+**Disable force subscribe:**
+```
+/fsub off
+```
+
+**Check status:**
+```
+/fsub status
+```
+
+**Features:**
+- ✅ Change channel anytime without restart
+- ✅ Turn on/off instantly
+- ✅ Bot must be admin in the channel
+- ✅ Works alongside environment variable `UPDATES_CHANNEL`
+- ✅ Database settings override environment variable
+
+**Requirements:**
+- Bot must be admin in target channel with:
+  - Ban users permission
+  - Invite users permission
+- `DATABASE_URL` must be configured
