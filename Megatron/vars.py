@@ -68,7 +68,6 @@ class Var(object):
     HAS_SSL = _as_bool(_optional("HAS_SSL"))
     OWNER_ID = _as_int(_require('OWNER_ID'))
     NO_PORT = _as_bool(_optional("NO_PORT"))
-    SKIP_BIN_VALIDATION = _as_bool(_optional("SKIP_BIN_VALIDATION"))
     if "DYNO" in environ:
         ON_HEROKU = True
         APP_NAME = _optional("APP_NAME", "megatron")
