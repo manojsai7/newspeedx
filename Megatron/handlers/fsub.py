@@ -8,12 +8,12 @@ from Megatron.utils.callbacks import *
 
 async def force_subscribe(bot, cmd):
     try:
-        invite_link = await bot.create_chat_invite_link(int(Var.UPDATES_CHANNEL))
+        invite_link = await bot.create_chat_invite_link(Var.UPDATES_CHANNEL)
     except FloodWait as e:
         await asyncio.sleep(e.x)
         return 400
     try:
-        user = await bot.get_chat_member(int(Var.UPDATES_CHANNEL), cmd.from_user.id)
+        user = await bot.get_chat_member(Var.UPDATES_CHANNEL, cmd.from_user.id)
         if user.status == "kicked":
             await bot.send_message(
                 chat_id=cmd.from_user.id,

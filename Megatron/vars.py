@@ -36,10 +36,10 @@ def _as_bool(value: Optional[str], default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _parse_channel(value: str) -> Union[int, str]:
+def _parse_channel(value: str, *, field_name: str = "BIN_CHANNEL") -> Union[int, str]:
     cleaned = value.strip()
     if not cleaned:
-        raise RuntimeError("BIN_CHANNEL cannot be empty.")
+        raise RuntimeError(f"{field_name} cannot be empty.")
     if cleaned.startswith("@"):
         return cleaned
     if cleaned.startswith("-") and cleaned[1:].isdigit():
@@ -47,9 +47,19 @@ def _parse_channel(value: str) -> Union[int, str]:
     if cleaned.isdigit():
         return int(cleaned)
     raise RuntimeError(
-        "BIN_CHANNEL must be either a numeric Telegram channel ID (starting with -100) "
+        f"{field_name} must be either a numeric Telegram channel ID (starting with -100) "
         "or a public username beginning with @"
     )
+
+
+def _parse_optional_channel(name: str) -> Optional[Union[int, str]]:
+    raw = _optional(name)
+    if raw is None:
+        return None
+    try:
+        return _parse_channel(raw, field_name=name)
+    except RuntimeError as exc:
+        raise RuntimeError(str(exc))
 
 
 class Var(object):
@@ -68,6 +78,8 @@ class Var(object):
     HAS_SSL = _as_bool(_optional("HAS_SSL"))
     OWNER_ID = _as_int(_require('OWNER_ID'))
     NO_PORT = _as_bool(_optional("NO_PORT"))
+    MAX_LOGIN_FLOODWAIT = _as_int(_optional("MAX_LOGIN_FLOODWAIT", "900"), 900)
+    LOGIN_FLOODWAIT_PADDING = _as_int(_optional("LOGIN_FLOODWAIT_PADDING", "5"), 5)
     if "DYNO" in environ:
         ON_HEROKU = True
         APP_NAME = _optional("APP_NAME", "megatron")
@@ -75,7 +87,7 @@ class Var(object):
         ON_HEROKU = False
         APP_NAME = None
     DATABASE_URL = _optional('DATABASE_URL')
-    UPDATES_CHANNEL = _optional("UPDATES_CHANNEL")
+    UPDATES_CHANNEL = _parse_optional_channel("UPDATES_CHANNEL")
     BANNED_CHANNELS = list(
         set(
             int(x)

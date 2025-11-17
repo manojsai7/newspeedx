@@ -20,9 +20,10 @@ Before running or deploying the bot you **must** provide your own Telegram crede
 | `DATABASE_URL` | optional | MongoDB/Postgres connection string for persistence |
 | `SESSION_NAME` | optional | Custom Pyrogram session filename (defaults to `MegatronBot`) |
 | `HAS_SSL`, `NO_PORT`, etc. | optional | Advanced hosting/network toggles |
+| `MAX_LOGIN_FLOODWAIT` | optional | Upper bound (in seconds) Megatron will wait when Telegram throttles bot logins (defaults to 900) |
 | `SKIP_BIN_VALIDATION` | optional | Set to `true` only if you understand the risks and want to bypass BIN channel checks (not recommended) |
 
-Copy `.env.example` to `.env` (or configure your hosting provider) and fill in the required values before starting the bot.
+Copy `.env.example` to `.env` (or configure your hosting provider) and fill in the required values before starting the bot. The runtime now uses [PyroBlack 2.6.x](https://pypi.org/project/pyroblack/) (a maintained Pyrogram 2.x fork) so Telegram's 64-bit identifiers and recent API changes are handled without hacks.
 
 ### Channel setup checklist
 

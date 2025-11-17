@@ -1,6 +1,5 @@
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
-from pyrogram.errors import UserNotParticipant
 
 from Megatron.bot import StreamBot
 from Megatron.vars import Var
@@ -41,13 +40,13 @@ async def start(b, m : Message):
             fsub = await force_subscribe(b, m)
             if fsub == 400:
                 return
-        u = await b.get_chat_member(int(Var.UPDATES_CHANNEL), m.from_user.id)
-        if u.status == "kicked" or u.status == "banned":
+        u = await b.get_chat_member(Var.UPDATES_CHANNEL, m.from_user.id)
+        if u.status in {"kicked", "banned"}:
             await b.send_message(
                 chat_id=m.from_user.id,
                 text="✨ You're Banned due not to pay attention to the [rules](https://t.me/+uW4Saio7cmYwNjk1). Contact [Support ](https://t.me/TG_FatherBoT) if you think you've banned wrongly.\n\n✨",
                 parse_mode="markdown",
-                disable_web_page_preview=True
+                disable_web_page_preview=True,
             )
           
 @StreamBot.on_message(filters.command('help') & filters.private & ~filters.edited)
@@ -59,7 +58,7 @@ async def help_handler(bot, message):
             f"#NEW_USER #joins #join_log: \n\nNew User [{message.from_user.first_name}](tg://user?id={message.from_user.id}) Started !!"
         )
     if Var.UPDATES_CHANNEL:
-        fsub = await force_subscribe(b, m)
+        fsub = await force_subscribe(bot, message)
         if fsub == 400:
             return
     await message.reply_text(

@@ -51,6 +51,14 @@
           "description": "Floodwait Sleep timer.",
           "required": false
       },
+      "MAX_LOGIN_FLOODWAIT": {
+          "description": "Maximum seconds Megatron will automatically wait when Telegram applies a FloodWait during login (defaults to 900).",
+          "required": false
+      },
+      "LOGIN_FLOODWAIT_PADDING": {
+          "description": "Extra seconds to add on top of Telegram's FloodWait before retrying a login (defaults to 5).",
+          "required": false
+      },
       "WORKERS": {
           "description": "No. of workers that is to be assigned.",
           "required": false

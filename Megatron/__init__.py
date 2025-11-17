@@ -5,6 +5,7 @@ from pyrogram.errors import (
     ChannelInvalid,
     ChatAdminRequired,
     ChatWriteForbidden,
+    FloodWait,
     PeerIdInvalid,
     UserNotParticipant,
 )
@@ -17,6 +18,11 @@ print("\n")
 print("------------------- Initializing Telegram Bot -------------------")
 
 
+def _is_clock_skew_error(error: BadMsgNotification) -> bool:
+    description = str(error).lower()
+    return "client time" in description or "msg_id is too low" in description
+
+
 def _start_stream_bot_with_guard(max_retries: int = 3) -> None:
     session_name = Var.SESSION_NAME
     workdir = getattr(StreamBot, "workdir", "Megatron")
@@ -27,6 +33,20 @@ def _start_stream_bot_with_guard(max_retries: int = 3) -> None:
             StreamBot.start()
             return
         except BadMsgNotification as exc:
+            if _is_clock_skew_error(exc):
+                print(
+                    "[StreamBot] Telegram rejected the login because the host clock is out of sync. "
+                    "Checking again after a short delay. Please ensure the server time is accurate (enable NTP)."
+                )
+                if attempt == max_retries:
+                    raise RuntimeError(
+                        "Telegram keeps rejecting the connection due to an unsynchronized clock. "
+                        "Synchronize the host time (e.g., via chrony/ntp) and try again."
+                    ) from exc
+                time.sleep(delay)
+                delay = min(delay * 2, 10)
+                continue
+
             removed_files = reset_stale_session(session_name=session_name, workdir=workdir)
             print(
                 f"[StreamBot] Telegram reported unsynchronized msg_id ({exc}). "
@@ -42,6 +62,16 @@ def _start_stream_bot_with_guard(max_retries: int = 3) -> None:
             print(f"Retrying StreamBot start in {delay} second(s)...")
             time.sleep(delay)
             delay = min(delay * 2, 10)
+        except FloodWait as exc:
+            wait_time = getattr(exc, "value", None) or getattr(exc, "x", None) or 60
+            if wait_time > Var.MAX_LOGIN_FLOODWAIT:
+                raise RuntimeError(
+                    "Telegram is throttling bot logins aggressively (FloodWait). "
+                    f"Wait {wait_time} seconds before restarting, or increase MAX_LOGIN_FLOODWAIT if you understand the risk."
+                ) from exc
+            cooldown = wait_time + Var.LOGIN_FLOODWAIT_PADDING
+            print(f"[StreamBot] FloodWait: Telegram asked to wait {wait_time}s before logging in. Sleeping for {cooldown}s...")
+            time.sleep(cooldown)
         except AccessTokenExpired as exc:
             raise RuntimeError(
                 "Telegram rejected the configured BOT_TOKEN (expired/revoked). "

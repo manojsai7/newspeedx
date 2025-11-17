@@ -1,8 +1,9 @@
 import asyncio
 from requests import post
 
-from pyromod import listen 
+from pyromod import listen  # type: ignore
 from pyrogram import Client, filters
+from pyrogram.errors import UserNotParticipant
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from Megatron.vars import Var
@@ -12,6 +13,7 @@ from Megatron.bot import StreamBot
 async def nimdownloader(c: Client, m: Message):
     if Var.UPDATES_CHANNEL is not None:
         try:
+            invite_link = await c.create_chat_invite_link(Var.UPDATES_CHANNEL)
             user = await c.get_chat_member(Var.UPDATES_CHANNEL, m.chat.id)
             if user.status == "kicked":
                 await c.send_message(
@@ -28,7 +30,7 @@ async def nimdownloader(c: Client, m: Message):
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [
-                            InlineKeyboardButton("✵ Join Updates Channel ✵", url=f"https://t.me/{Var.UPDATES_CHANNEL}")
+                            InlineKeyboardButton("✵ Join Updates Channel ✵", url=invite_link.invite_link)
                         ]
                     ]
                 ),
