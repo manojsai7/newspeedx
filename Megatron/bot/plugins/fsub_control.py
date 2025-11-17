@@ -141,11 +141,15 @@ async def fsub_control(_, m: Message):
                     logging.error(f"Unexpected error getting chat {channel_input if not channel_id else channel_id}: {e}")
                     return
                 
-                # Check if it's a channel
-                if chat.type not in ["channel", "supergroup"]:
+                # Check if it's a channel (handle both string and enum)
+                from pyrogram.enums import ChatType
+                chat_type_str = str(chat.type).split('.')[-1].lower() if hasattr(chat.type, 'name') else str(chat.type).lower()
+                
+                if chat_type_str not in ["channel", "supergroup"]:
                     await m.reply_text(
-                        "❌ **Invalid channel!**\n\n"
-                        "The provided ID/username must be a channel or supergroup.",
+                        f"❌ **Invalid channel!**\n\n"
+                        f"The provided ID/username must be a channel or supergroup.\n"
+                        f"Current type: {chat.type}",
                         parse_mode=enums.ParseMode.MARKDOWN
                     )
                     return
