@@ -42,7 +42,12 @@ async def stream_handler(request: web.Request):
             secure_hash = match.group(1)
             message_id = int(match.group(2))
         else:
-            message_id = int(re.search(r"(\d+)(?:\/\S+)?", path).group(1))
+            # More robust regex matching with error handling
+            id_match = re.search(r"(\d+)(?:\/\S+)?", path)
+            if not id_match:
+                logging.warning(f"Invalid path format: {path}")
+                raise web.HTTPBadRequest(text="Invalid link format")
+            message_id = int(id_match.group(1))
             secure_hash = request.rel_url.query.get("hash")
         return await media_streamer(request, message_id, secure_hash)
     except InvalidHash as e:
@@ -52,6 +57,9 @@ async def stream_handler(request: web.Request):
     except (AttributeError, BadStatusLine, ConnectionResetError) as e:
         logging.warning(f"Connection error in stream handler: {e}")
         raise web.HTTPBadRequest(text="Invalid request or connection error")
+    except ValueError as e:
+        logging.warning(f"Invalid message ID in path: {path}")
+        raise web.HTTPBadRequest(text="Invalid message ID")
     except Exception as e:
         logging.critical(e.with_traceback(None))
         raise web.HTTPInternalServerError(text=str(e))

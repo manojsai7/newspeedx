@@ -2,7 +2,8 @@ aiohttp
 aiofiles
 dnspython
 motor
-pyromod==2.1.0
+# Use compatible pyromod version for Python 3.13 and Pyrogram 2.x
+pyromod>=2.1.1
 python-dotenv
 requests
 tgcrypto

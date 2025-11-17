@@ -1,5 +1,4 @@
 from pyrogram import Client
-from pyromod import listen  # type: ignore
 
 from ..vars import Var
 
@@ -13,6 +12,32 @@ StreamBot = Client(
     sleep_threshold=Var.SLEEP_THRESHOLD,
     workers=Var.WORKERS,
 )
+
+# Initialize pyromod listeners BEFORE importing pyromod to prevent KeyError
+try:
+    from pyromod.listen.listen import ListenerTypes
+except ImportError:
+    try:
+        from pyromod.listen import ListenerTypes
+    except ImportError:
+        try:
+            import pyromod
+            ListenerTypes = pyromod.listen.listen.ListenerTypes
+        except:
+            ListenerTypes = None
+
+if ListenerTypes:
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    for listener_type in ListenerTypes:
+        if listener_type not in StreamBot.listeners:
+            StreamBot.listeners[listener_type] = {}  # Initialize as dict, not list
+
+# Now import pyromod listen to attach handlers
+try:
+    from pyromod import listen  # type: ignore
+except Exception as e:
+    print(f"Warning: Could not initialize pyromod: {e}")
 
 multi_clients = {}
 work_loads = {}
