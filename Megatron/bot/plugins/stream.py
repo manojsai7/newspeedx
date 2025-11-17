@@ -43,6 +43,8 @@ def detect_type(m: Message):
     group=4,
 )
 async def media_receive_handler(c: Client, m: Message):
+    # Log to verify this handler is triggered
+    logging.debug(f"[PRIVATE] Received media from user {m.from_user.id} - {m.from_user.first_name}")
     if not await db.is_user_exist(m.from_user.id):
         await db.add_user(m.from_user.id)
         await c.send_message(
@@ -107,6 +109,8 @@ async def media_receive_handler(c: Client, m: Message):
 
 @StreamBot.on_message(filters.channel & ~filters.chat(Var.BIN_CHANNEL) & ~filters.bot & (filters.document | filters.video | filters.photo) & not_edited & ~filters.forwarded, group=-1)
 async def channel_receive_handler(bot, broadcast):
+    # Log to verify if this handler is triggered incorrectly
+    logging.debug(f"[CHANNEL] Received media from channel {broadcast.chat.id} - {broadcast.chat.title}")
     if int(broadcast.chat.id) in Var.BANNED_CHANNELS:
         await bot.leave_chat(broadcast.chat.id)
         return
