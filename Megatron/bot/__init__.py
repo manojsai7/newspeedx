@@ -1,5 +1,6 @@
 from pyrogram import Client
 from pyromod import listen  # type: ignore
+from pyromod.listen.listen import ListenerTypes
 
 from ..vars import Var
 
@@ -13,6 +14,10 @@ StreamBot = Client(
     sleep_threshold=Var.SLEEP_THRESHOLD,
     workers=Var.WORKERS,
 )
+
+# Initialize listeners properly for pyromod
+if not hasattr(StreamBot, 'listeners'):
+    StreamBot.listeners = {listener_type: {} for listener_type in ListenerTypes}
 
 multi_clients = {}
 work_loads = {}

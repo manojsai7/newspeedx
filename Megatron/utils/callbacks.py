@@ -55,27 +55,90 @@ async def button(bot, cmd: CallbackQuery):
         )
     elif cb_data.startswith("ban_"):
         if cmd.from_user.id != Var.OWNER_ID:
-            await cmd.answer("Only bot owner can ban users!", show_alert=True)
+            await cmd.answer("❌ Only bot owner can ban users!", show_alert=True)
             return
         if Var.UPDATES_CHANNEL is None:
-            await cmd.answer("You didn't Set any Updates Channel", show_alert=True)
+            await cmd.answer("❌ No Updates Channel configured!\nSet UPDATES_CHANNEL or use /fsub command.", show_alert=True)
             return
         try:
-            user_id = cb_data.split("_", 1)[1]
-            await bot.ban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=int(user_id))
-            await cmd.answer("User Banned from Updates Channel ✅", show_alert=True)
+            user_id = int(cb_data.split("_", 1)[1])
+            
+            # Prevent owner from banning themselves
+            if user_id == Var.OWNER_ID:
+                await cmd.answer("❌ Cannot ban the bot owner!", show_alert=True)
+                return
+            
+            # Get user info
+            try:
+                user = await bot.get_users(user_id)
+                user_name = user.first_name
+                username = f"@{user.username}" if user.username else "No username"
+            except:
+                user_name = "Unknown User"
+                username = "N/A"
+            
+            # Ban the user
+            await bot.ban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=user_id)
+            
+            # Update message with ban info
+            await cmd.message.edit_reply_markup(
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("✅ Unban User", callback_data=f"unban_{user_id}"),
+                        InlineKeyboardButton("🚫 Already Banned", callback_data="noop")
+                    ]
+                ])
+            )
+            
+            await cmd.answer(
+                f"✅ User Banned Successfully!\n\n"
+                f"👤 Name: {user_name}\n"
+                f"🆔 ID: {user_id}\n"
+                f"📝 Username: {username}",
+                show_alert=True
+            )
         except Exception as e:
-            await cmd.answer(f"Can't Ban User!\n\nError: {e}", show_alert=True)
+            await cmd.answer(f"❌ Failed to ban user!\n\nError: {str(e)[:100]}", show_alert=True)
     elif cb_data.startswith("unban_"):
         if cmd.from_user.id != Var.OWNER_ID:
-            await cmd.answer("Only bot owner can unban users!", show_alert=True)
+            await cmd.answer("❌ Only bot owner can unban users!", show_alert=True)
             return
         if Var.UPDATES_CHANNEL is None:
-            await cmd.answer("You didn't Set any Updates Channel", show_alert=True)
+            await cmd.answer("❌ No Updates Channel configured!\nSet UPDATES_CHANNEL or use /fsub command.", show_alert=True)
             return
         try:
-            user_id = cb_data.split("_", 1)[1]
-            await bot.unban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=int(user_id))
-            await cmd.answer("User Unbanned from Updates Channel ✅", show_alert=True)
+            user_id = int(cb_data.split("_", 1)[1])
+            
+            # Get user info
+            try:
+                user = await bot.get_users(user_id)
+                user_name = user.first_name
+                username = f"@{user.username}" if user.username else "No username"
+            except:
+                user_name = "Unknown User"
+                username = "N/A"
+            
+            # Unban the user
+            await bot.unban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=user_id)
+            
+            # Update message with unban confirmation
+            await cmd.message.edit_reply_markup(
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("🚫 Ban User", callback_data=f"ban_{user_id}"),
+                        InlineKeyboardButton("✅ Already Unbanned", callback_data="noop")
+                    ]
+                ])
+            )
+            
+            await cmd.answer(
+                f"✅ User Unbanned Successfully!\n\n"
+                f"👤 Name: {user_name}\n"
+                f"🆔 ID: {user_id}\n"
+                f"📝 Username: {username}",
+                show_alert=True
+            )
         except Exception as e:
-            await cmd.answer(f"Can't Unban User!\n\nError: {e}", show_alert=True)
+            await cmd.answer(f"❌ Failed to unban user!\n\nError: {str(e)[:100]}", show_alert=True)
+    elif cb_data == "noop":
+        await cmd.answer("✨ This action has already been performed.", show_alert=False)
