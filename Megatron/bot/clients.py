@@ -10,6 +10,25 @@ from ..vars import Var
 async def initialize_clients():
     multi_clients[0] = StreamBot
     work_loads[0] = 0
+    
+    # Initialize pyromod listeners for the main client if not already done
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    try:
+        from pyromod.listen.listen import ListenerTypes
+        for listener_type in ListenerTypes:
+            if listener_type not in StreamBot.listeners:
+                StreamBot.listeners[listener_type] = []
+    except ImportError:
+        # If the import path is different, try alternative
+        try:
+            from pyromod.listen import ListenerTypes
+            for listener_type in ListenerTypes:
+                if listener_type not in StreamBot.listeners:
+                    StreamBot.listeners[listener_type] = []
+        except:
+            pass
+    
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
         print("No additional clients found, using default client")
@@ -25,6 +44,11 @@ async def initialize_clients():
             sleep_threshold=Var.SLEEP_THRESHOLD,
             no_updates=True,
         )
+        
+        # Initialize pyromod listeners for each client
+        if not hasattr(instance, 'listeners'):
+            instance.listeners = {}
+        
         try:
             multi_clients[client_id] = await instance.start()
         except FloodWait as exc:

@@ -15,5 +15,9 @@ StreamBot = Client(
     workers=Var.WORKERS,
 )
 
+# Initialize pyromod listeners dictionary to prevent KeyError
+if not hasattr(StreamBot, 'listeners'):
+    StreamBot.listeners = {}
+
 multi_clients = {}
 work_loads = {}
