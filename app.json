@@ -31,7 +31,7 @@
           "description": "Get this value from @BotFather"
       },
       "BIN_CHANNEL": {
-          "description": "The BIN Channel ID."
+          "description": "Numeric BIN channel ID (must begin with -100)."
       },
       "DATABASE_URL": {
           "description": "MongoDB URI for saving User IDs when they first Start the Bot. We will use that for Broadcasting to them."

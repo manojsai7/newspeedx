@@ -15,7 +15,7 @@ Before running or deploying the bot you **must** provide your own Telegram crede
 | `API_ID` | ✅ | Your Telegram API ID from [my.telegram.org](https://my.telegram.org) |
 | `API_HASH` | ✅ | The API hash paired with the API ID |
 | `BOT_TOKEN` | ✅ | Bot token from @BotFather; regenerate if Telegram says it expired |
-| `BIN_CHANNEL` | ✅ | Channel ID (prefixed with `-100`) or public username (e.g. `@MyChannel`) where files are stored |
+| `BIN_CHANNEL` | ✅ | **Numeric** channel ID (must start with `-100`, e.g. `-1001234567890`) where files are stored |
 | `OWNER_ID` | ✅ | Numeric Telegram user ID used for admin operations |
 | `DATABASE_URL` | optional | MongoDB/Postgres connection string for persistence |
 | `SESSION_NAME` | optional | Custom Pyrogram session filename (defaults to `MegatronBot`) |

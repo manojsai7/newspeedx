@@ -36,23 +36,26 @@ def _as_bool(value: Optional[str], default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _parse_channel(value: str, *, field_name: str = "BIN_CHANNEL") -> Union[int, str]:
+def _parse_channel(value: str, *, field_name: str = "BIN_CHANNEL") -> int:
     cleaned = value.strip()
     if not cleaned:
         raise RuntimeError(f"{field_name} cannot be empty.")
-    if cleaned.startswith("@"):
-        return cleaned
-    if cleaned.startswith("-") and cleaned[1:].isdigit():
-        return int(cleaned)
-    if cleaned.isdigit():
-        return int(cleaned)
-    raise RuntimeError(
-        f"{field_name} must be either a numeric Telegram channel ID (starting with -100) "
-        "or a public username beginning with @"
-    )
+    is_negative = cleaned.startswith("-")
+    digits = cleaned[1:] if is_negative else cleaned
+    if not digits.isdigit():
+        raise RuntimeError(
+            f"{field_name} must be a numeric Telegram channel ID (e.g. -100xxxx). "
+            "Public usernames are not accepted in this deployment."
+        )
+    channel_id = int(cleaned)
+    if not str(channel_id).startswith("-100"):
+        raise RuntimeError(
+            f"{field_name} must start with -100 (supergroup/channel IDs). Got {channel_id}."
+        )
+    return channel_id
 
 
-def _parse_optional_channel(name: str) -> Optional[Union[int, str]]:
+def _parse_optional_channel(name: str) -> Optional[int]:
     raw = _optional(name)
     if raw is None:
         return None
@@ -71,7 +74,7 @@ class Var(object):
     BROADCAST_AS_COPY = _as_bool(_optional("BROADCAST_AS_COPY"))
     SLEEP_THRESHOLD = _as_int(_optional("SLEEP_THRESHOLD", "60"), 60)
     WORKERS = _as_int(_optional("WORKERS", "6"), 6)
-    BIN_CHANNEL = _parse_channel(_require("BIN_CHANNEL"),'-1003315873977')  # mandatory for uploads
+    BIN_CHANNEL = _parse_channel(_require("BIN_CHANNEL"))  # mandatory for uploads
     PORT = _as_int(_optional("PORT", "8000"), 8000)
     BIND_ADDRESS = _optional("WEB_SERVER_BIND_ADDRESS", "0.0.0.0")
     PING_INTERVAL = _as_int(_optional("PING_INTERVAL", "1200"), 1200)
