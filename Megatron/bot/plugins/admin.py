@@ -7,7 +7,7 @@ import aiofiles  # type: ignore
 import datetime
 import traceback
 
-from pyrogram import filters, Client
+from pyrogram import filters, Client, enums
 from pyrogram.types import Message
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 
@@ -26,7 +26,7 @@ broadcast_ids = {}
 @StreamBot.on_message(filters.command("status") & filters.private & filters.user(Var.OWNER_ID) & not_edited)
 async def sts(c: Client, m: Message):
     total_users = await db.total_users_count()
-    await m.reply_text(text=f"**Total Users in Database:** `{total_users}`", parse_mode="Markdown", quote=True)
+    await m.reply_text(text=f"**Total Users in Database:** `{total_users}`", parse_mode=enums.ParseMode.MARKDOWN, quote=True)
 
 
 @StreamBot.on_message(filters.private & filters.command("broadcast") & filters.user(Var.OWNER_ID) & filters.reply)

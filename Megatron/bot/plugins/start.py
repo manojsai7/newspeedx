@@ -1,4 +1,4 @@
-from pyrogram import filters
+from pyrogram import filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
 from Megatron.bot import StreamBot
@@ -46,7 +46,7 @@ async def start(b, m : Message):
             await b.send_message(
                 chat_id=m.from_user.id,
                 text="✨ You're Banned due not to pay attention to the [rules](https://t.me/+uW4Saio7cmYwNjk1). Contact [Support ](https://t.me/TG_FatherBoT) if you think you've banned wrongly.\n\n✨",
-                parse_mode="markdown",
+                parse_mode=enums.ParseMode.MARKDOWN,
                 disable_web_page_preview=True,
             )
           
@@ -64,7 +64,7 @@ async def help_handler(bot, message):
             return
     await message.reply_text(
         text="✨ Send me any file, I'll give you its direct download link\n\nAlso I'm supported in channels. Add me to channel as admin to make me workable\n\n✨",
-        parse_mode="Markdown",
+        parse_mode=enums.ParseMode.MARKDOWN,
         disable_web_page_preview=True,
         reply_markup=InlineKeyboardMarkup(
             [
