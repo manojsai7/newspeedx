@@ -16,8 +16,21 @@ StreamBot = Client(
 )
 
 # Initialize pyromod listeners dictionary to prevent KeyError
-if not hasattr(StreamBot, 'listeners'):
-    StreamBot.listeners = {}
+# The key must be the ListenerTypes enum, not the string value
+try:
+    from pyromod.listen.listen import ListenerTypes
+    
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    
+    # Initialize with enum objects as keys
+    for listener_type in ListenerTypes:
+        if listener_type not in StreamBot.listeners:
+            StreamBot.listeners[listener_type] = []
+except (ImportError, AttributeError):
+    # Fallback if import fails
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
 
 multi_clients = {}
 work_loads = {}

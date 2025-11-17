@@ -12,22 +12,24 @@ async def initialize_clients():
     work_loads[0] = 0
     
     # Initialize pyromod listeners for the main client if not already done
-    if not hasattr(StreamBot, 'listeners'):
-        StreamBot.listeners = {}
     try:
         from pyromod.listen.listen import ListenerTypes
+    except ImportError:
+        try:
+            from pyromod.listen import ListenerTypes
+        except ImportError:
+            try:
+                import pyromod
+                ListenerTypes = pyromod.listen.listen.ListenerTypes
+            except:
+                ListenerTypes = None
+    
+    if ListenerTypes:
+        if not hasattr(StreamBot, 'listeners'):
+            StreamBot.listeners = {}
         for listener_type in ListenerTypes:
             if listener_type not in StreamBot.listeners:
                 StreamBot.listeners[listener_type] = []
-    except ImportError:
-        # If the import path is different, try alternative
-        try:
-            from pyromod.listen import ListenerTypes
-            for listener_type in ListenerTypes:
-                if listener_type not in StreamBot.listeners:
-                    StreamBot.listeners[listener_type] = []
-        except:
-            pass
     
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
@@ -45,9 +47,13 @@ async def initialize_clients():
             no_updates=True,
         )
         
-        # Initialize pyromod listeners for each client
-        if not hasattr(instance, 'listeners'):
-            instance.listeners = {}
+        # Initialize pyromod listeners for each client instance
+        if ListenerTypes:
+            if not hasattr(instance, 'listeners'):
+                instance.listeners = {}
+            for listener_type in ListenerTypes:
+                if listener_type not in instance.listeners:
+                    instance.listeners[listener_type] = []
         
         try:
             multi_clients[client_id] = await instance.start()

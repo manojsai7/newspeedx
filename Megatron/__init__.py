@@ -30,29 +30,32 @@ def _start_stream_bot_with_guard(max_retries: int = 3) -> None:
 
     for attempt in range(1, max_retries + 1):
         try:
-            # Initialize pyromod listeners before starting
-            if not hasattr(StreamBot, 'listeners'):
-                StreamBot.listeners = {}
-            
-            # Initialize all listener types to prevent KeyError
+            # Initialize pyromod listeners before starting - CRITICAL FIX
+            # Must use ListenerTypes enum objects as keys, not strings
             try:
                 from pyromod.listen.listen import ListenerTypes
             except ImportError:
                 try:
+                    # Try alternative import path
                     from pyromod.listen import ListenerTypes
-                except:
-                    # Fallback: create basic listener types
-                    class ListenerTypes:
-                        MESSAGE = 'message'
-                        CALLBACK_QUERY = 'callback_query'
-                        INLINE_QUERY = 'inline_query'
-                    
-            # Ensure all listener type keys exist
-            for attr in dir(ListenerTypes):
-                if not attr.startswith('_'):
-                    listener_value = getattr(ListenerTypes, attr)
-                    if listener_value not in StreamBot.listeners:
-                        StreamBot.listeners[listener_value] = []
+                except ImportError:
+                    # Last resort: try getting it from pyromod directly
+                    try:
+                        import pyromod
+                        ListenerTypes = pyromod.listen.listen.ListenerTypes
+                    except:
+                        ListenerTypes = None
+            
+            if ListenerTypes:
+                if not hasattr(StreamBot, 'listeners'):
+                    StreamBot.listeners = {}
+                
+                # Initialize using enum objects as keys
+                for listener_type in ListenerTypes:
+                    if listener_type not in StreamBot.listeners:
+                        StreamBot.listeners[listener_type] = []
+                        
+                print(f"[DEBUG] Initialized pyromod listeners: {list(StreamBot.listeners.keys())}")
             
             StreamBot.start()
             return
