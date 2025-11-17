@@ -128,9 +128,10 @@ def _ensure_bin_channel_binding(bot_id: int) -> None:
             "🛠 Megatron verified BIN_CHANNEL access (message auto-deleted).",
             disable_notification=True,
         )
-        print(f"[BIN_CHANNEL] ✓ Test message posted (msg_id={ping.message_id})")
+        msg_id = ping.id  # PyroBlack 2.x uses .id instead of .message_id
+        print(f"[BIN_CHANNEL] ✓ Test message posted (msg_id={msg_id})")
         try:
-            StreamBot.delete_messages(channel, ping.message_id)
+            StreamBot.delete_messages(channel, msg_id)
             print("[BIN_CHANNEL] ✓ Test message deleted. Validation complete.")
         except ChatAdminRequired:
             print("[BIN_CHANNEL] ⚠ Could not delete test message (missing delete permission), but post works.")
