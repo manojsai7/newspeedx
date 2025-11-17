@@ -112,7 +112,9 @@ def _ensure_bin_channel_binding(bot_id: int) -> None:
             "Megatron needs admin privileges in BIN_CHANNEL to forward files. Grant Post Messages permission."
         ) from exc
 
-    if member.status not in ("administrator", "creator"):
+    # PyroBlack 2.x returns ChatMemberStatus enums; convert to string for comparison
+    status_str = str(member.status).split(".")[-1].lower() if hasattr(member.status, "name") else str(member.status).lower()
+    if status_str not in ("administrator", "creator"):
         print(f"[BIN_CHANNEL] ✗ Insufficient privileges: current status is '{member.status}', need 'administrator' or 'creator'")
         raise RuntimeError(
             f"Megatron must be an admin in BIN_CHANNEL={channel}. Current status: {member.status}. "
