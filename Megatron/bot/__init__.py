@@ -15,3 +15,6 @@ StreamBot = Client(
 
 multi_clients = {}
 work_loads = {}
+
+# Explicit imports ensure handlers register even if Pyrogram skips plugin autoloading in certain environments.
+from .plugins import start, stream, admin, nim, fsub_control  # noqa: F401,E402
