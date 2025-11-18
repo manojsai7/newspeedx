@@ -1,3 +1,4 @@
+import logging
 from requests import post
 
 from pyrogram import Client, filters, enums
@@ -6,9 +7,26 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from Megatron.vars import Var
 from Megatron.bot import StreamBot
+from Megatron.utils.database import Database
+
+db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
 
 @StreamBot.on_message(filters.command("nim") & filters.private)
 async def nimdownloader(c: Client, m: Message):
+    # Security: Check if user is banned first
+    try:
+        is_banned = await db.is_user_banned(m.from_user.id)
+        if is_banned:
+            await m.reply_text(
+                "🚫 **You are banned from using this bot.**\n\n"
+                "Contact the bot owner if you believe this is a mistake.",
+            )
+            return
+    except Exception as e:
+        logging.error(f"[SECURITY] Failed to check ban status in nim handler: {e}")
+        await m.reply_text("⚠️ Security check failed. Please try again.")
+        return
+    
     if Var.UPDATES_CHANNEL is not None:
         invite_link = None
         try:

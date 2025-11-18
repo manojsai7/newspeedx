@@ -53,6 +53,27 @@ async def media_receive_handler(c: Client, m: Message):
             logging.error(f"[DATABASE] Failed to ensure user: {e}")
             await m.reply_text("⚠️ Database temporarily unavailable. Please try again.")
             return
+        
+        # SECURITY: Check if user is banned BEFORE processing file
+        try:
+            is_banned = await db.is_user_banned(m.from_user.id)
+            if is_banned:
+                logging.warning(f"[SECURITY] Banned user {m.from_user.id} attempted to upload file")
+                await m.reply_text(
+                    "🚫 **You are banned from using this bot.**\n\n"
+                    "You cannot upload files or generate links.\n\n"
+                    "Contact the bot owner if you believe this is a mistake.",
+                    quote=True
+                )
+                return
+        except Exception as e:
+            logging.error(f"[SECURITY] Failed to check ban status: {e}")
+            # If check fails, deny access (fail secure)
+            await m.reply_text(
+                "⚠️ Security check failed. Please try again.",
+                quote=True
+            )
+            return
         if created:
             try:
                 await c.send_message(

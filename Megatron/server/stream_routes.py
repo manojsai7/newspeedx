@@ -10,6 +10,10 @@ from aiohttp.http_exceptions import BadStatusLine
 from Megatron.bot import multi_clients, work_loads
 from Megatron.server.exceptions import FIleNotFound, InvalidHash
 from Megatron import Var, utils, StartTime, __version__, bot_info
+from Megatron.utils.database import Database
+
+# Initialize database for security checks
+db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
 
 
 routes = web.RouteTableDef()
@@ -70,6 +74,23 @@ class_cache = {}
 
 async def media_streamer(request: web.Request, message_id: int, secure_hash: str):
     range_header = request.headers.get("Range", 0)
+    
+    # Security: Get file info and check owner's ban status
+    try:
+        file_info = await db.files.find_one({"message_id": message_id})
+        if file_info:
+            owner_id = file_info.get('owner_id')
+            if owner_id:
+                # Check if file owner is banned
+                is_banned = await db.is_user_banned(owner_id)
+                if is_banned:
+                    logging.warning(f"Blocked access attempt to file from banned user {owner_id}")
+                    raise web.HTTPForbidden(text="Access denied: File owner is banned")
+    except web.HTTPForbidden:
+        raise
+    except Exception as e:
+        logging.warning(f"Security check error (allowing access): {e}")
+        # Continue if security check fails (fail open for now, but log it)
     
     index = min(work_loads, key=work_loads.get)
     faster_client = multi_clients[index]

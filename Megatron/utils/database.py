@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import motor.motor_asyncio
@@ -173,6 +174,18 @@ class Database:
             "flags.banned_at": UTC_NOW() if status == "banned" else None,
         }
         await self.users.update_one({"id": int(user_id)}, {"$set": update})
+        
+        # Security: If banning user, mark all their files for deletion
+        if status == "banned":
+            try:
+                # Update all files from this user to mark them as banned
+                await self.files.update_many(
+                    {"owner_id": int(user_id)},
+                    {"$set": {"owner_banned": True, "banned_at": UTC_NOW()}}
+                )
+                logging.info(f"[SECURITY] Marked all files from banned user {user_id} as inaccessible")
+            except Exception as e:
+                logging.error(f"[SECURITY] Failed to mark banned user files: {e}")
 
     async def update_user_preferences(self, user_id: int, **prefs: Any) -> None:
         if not prefs:

@@ -42,7 +42,9 @@ async def start_handler(bot, message: Message) -> None:
     
     if is_banned:
         await message.reply_text(
-            "🚫 You are currently banned from using this service. Contact support if you believe this is a mistake.",
+            "🚫 **You are banned from using this bot.**\n\n"
+            "You cannot use any bot features or generate links.\n\n"
+            "Contact the bot owner if you believe this is a mistake.",
             disable_web_page_preview=True,
         )
         return
@@ -86,6 +88,19 @@ async def help_handler(bot, message: Message) -> None:
         await db.ensure_user(message.from_user)
     except Exception as e:
         logging.error(f"[DATABASE] Failed to ensure user in help handler: {e}")
+    
+    # Security: Check if user is banned
+    try:
+        is_banned = await db.is_user_banned(message.from_user.id)
+        if is_banned:
+            await message.reply_text(
+                "🚫 **You are banned from using this bot.**\n\n"
+                "Contact the bot owner if you believe this is a mistake.",
+                disable_web_page_preview=True,
+            )
+            return
+    except Exception as e:
+        logging.error(f"[SECURITY] Failed to check ban status in help handler: {e}")
 
     fsub_result = await force_subscribe(bot, message)
     if fsub_result == 400:

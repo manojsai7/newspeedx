@@ -13,6 +13,17 @@ db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
 async def force_subscribe(bot, cmd):
     """Ensure user joined configured updates channel before proceeding."""
     await db.ensure_user(cmd.from_user)
+    
+    # Security: Check if user is banned first
+    is_banned = await db.is_user_banned(cmd.from_user.id)
+    if is_banned:
+        await bot.send_message(
+            cmd.from_user.id,
+            "🚫 **You are banned from using this bot.**\n\nContact the bot owner if you believe this is a mistake.",
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+        return 400
+    
     fsub_channel = await db.get_force_subscribe_channel()
     if fsub_channel is None:
         fsub_channel = Var.UPDATES_CHANNEL
