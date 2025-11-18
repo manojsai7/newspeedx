@@ -42,7 +42,7 @@ async def fsub_control(_, m: Message):
         
         if action == "status":
             # Show current status
-            settings = await db.get_fsub_settings()
+            settings = await db.get_force_subscribe_settings()
             if settings['enabled'] and settings['channel']:
                 try:
                     chat = await StreamBot.get_chat(settings['channel'])
@@ -72,7 +72,7 @@ async def fsub_control(_, m: Message):
         
         if action == "off":
             # Disable force subscribe
-            await db.set_fsub(False, None)
+            await db.set_force_subscribe(False, None)
             await m.reply_text(
                 "✅ **Force Subscribe Disabled!**\n\n"
                 "Users can now use the bot without joining any channel.\n\n"
@@ -211,7 +211,7 @@ async def fsub_control(_, m: Message):
                     return
                 
                 # Enable force subscribe
-                await db.set_fsub(True, chat.id)
+                await db.set_force_subscribe(True, chat.id)
                 
                 await m.reply_text(
                     f"✅ **Force Subscribe Enabled!**\n\n"
