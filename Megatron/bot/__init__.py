@@ -28,6 +28,42 @@ def _patched_client_init(self, *args, **kwargs):
         listeners = ListenerStore(listeners or {})
         self.listeners = listeners
 
+# Now import pyromod to patch the Client class with listener methods BEFORE creating client
+try:
+    from pyromod import listen  # type: ignore
+    pyromod_available = True
+    print("✓ Pyromod imported successfully")
+except Exception as e:
+    print(f"Warning: Could not import pyromod: {e}")
+    pyromod_available = False
+
+# Import ListenerTypes with multiple fallback attempts
+ListenerTypes = None
+if pyromod_available:
+    try:
+        from pyromod.listen import ListenerTypes
+        print(f"✓ ListenerTypes imported: {ListenerTypes}")
+    except (ImportError, AttributeError):
+        try:
+            import pyromod.listen.listen as pyromod_listen
+            ListenerTypes = pyromod_listen.ListenerTypes
+            print(f"✓ ListenerTypes imported (alt path): {ListenerTypes}")
+        except (ImportError, AttributeError):
+            try:
+                import pyromod
+                ListenerTypes = pyromod.ListenerTypes
+                print(f"✓ ListenerTypes imported (pyromod root): {ListenerTypes}")
+            except (ImportError, AttributeError):
+                print("[Pyromod] Could not import ListenerTypes, using fallback initialization")
+                # Create a fallback enum with common listener types
+                from enum import Enum
+                class ListenerTypes(str, Enum):
+                    MESSAGE = "message"
+                    CALLBACK_QUERY = "callback_query"
+                    INLINE_QUERY = "inline_query"
+                    EDITED_MESSAGE = "edited_message"
+
+# Apply our custom __init__ patch AFTER pyromod has patched Client
 Client.__init__ = _patched_client_init
 
 
@@ -44,37 +80,6 @@ def _ensure_listener_bucket(client, listener_type):
     if listener_type not in listeners:
         listeners[listener_type] = []
     return listeners[listener_type]
-
-# Now import pyromod to patch the Client class with listener methods
-try:
-    from pyromod import listen  # type: ignore
-    pyromod_available = True
-except Exception as e:
-    print(f"Warning: Could not import pyromod: {e}")
-    pyromod_available = False
-
-# Import ListenerTypes with multiple fallback attempts
-ListenerTypes = None
-if pyromod_available:
-    try:
-        from pyromod.listen import ListenerTypes
-    except (ImportError, AttributeError):
-        try:
-            import pyromod.listen.listen as pyromod_listen
-            ListenerTypes = pyromod_listen.ListenerTypes
-        except (ImportError, AttributeError):
-            try:
-                import pyromod
-                ListenerTypes = pyromod.ListenerTypes
-            except (ImportError, AttributeError):
-                print("[Pyromod] Could not import ListenerTypes, using fallback initialization")
-                # Create a fallback enum with common listener types
-                from enum import Enum
-                class ListenerTypes(str, Enum):
-                    MESSAGE = "message"
-                    CALLBACK_QUERY = "callback_query"
-                    INLINE_QUERY = "inline_query"
-                    EDITED_MESSAGE = "edited_message"
 
 
 StreamBot = Client(
