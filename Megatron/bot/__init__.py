@@ -9,9 +9,10 @@ _original_client_init = Client.__init__
 
 def _patched_client_init(self, *args, **kwargs):
     _original_client_init(self, *args, **kwargs)
-    # Ensure listeners attribute exists and is a dict
+    # Ensure listeners attribute exists and is a defaultdict
+    if not hasattr(self, 'listeners'):
         self.listeners = defaultdict(list)
-        elif not isinstance(self.listeners, defaultdict):
+    elif not isinstance(self.listeners, defaultdict):
         # convert existing structure to defaultdict(list)
         self.listeners = defaultdict(list, getattr(self, 'listeners', {}))
 
