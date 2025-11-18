@@ -12,27 +12,35 @@ async def initialize_clients():
     work_loads[0] = 0
     
     # Initialize pyromod listeners for the main client if not already done
+    ListenerTypes = None
     try:
-        from pyromod.listen.listen import ListenerTypes
-    except ImportError:
+        from pyromod.listen import ListenerTypes
+    except (ImportError, AttributeError):
         try:
-            from pyromod.listen import ListenerTypes
-        except ImportError:
+            import pyromod.listen.listen as pyromod_listen
+            ListenerTypes = pyromod_listen.ListenerTypes
+        except (ImportError, AttributeError):
             try:
                 import pyromod
-                ListenerTypes = pyromod.listen.listen.ListenerTypes
-            except:
+                ListenerTypes = pyromod.ListenerTypes
+            except (ImportError, AttributeError):
+                # Use string keys as fallback
                 ListenerTypes = None
     
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    elif not isinstance(StreamBot.listeners, dict):
+        StreamBot.listeners = {}
+        
     if ListenerTypes:
-        if not hasattr(StreamBot, 'listeners'):
-            StreamBot.listeners = {}
-        elif not isinstance(StreamBot.listeners, dict):
-            StreamBot.listeners = {}
-            
         for listener_type in ListenerTypes:
             if listener_type not in StreamBot.listeners:
                 StreamBot.listeners[listener_type] = []
+    else:
+        # Fallback to common listener types as strings
+        for lt in ["message", "callback_query", "inline_query", "edited_message"]:
+            if lt not in StreamBot.listeners:
+                StreamBot.listeners[lt] = []
     
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
@@ -51,15 +59,20 @@ async def initialize_clients():
         )
         
         # Initialize pyromod listeners for each client instance
-        if ListenerTypes:
-            if not hasattr(instance, 'listeners'):
-                instance.listeners = {}
-            elif not isinstance(instance.listeners, dict):
-                instance.listeners = {}
+        if not hasattr(instance, 'listeners'):
+            instance.listeners = {}
+        elif not isinstance(instance.listeners, dict):
+            instance.listeners = {}
 
+        if ListenerTypes:
             for listener_type in ListenerTypes:
                 if listener_type not in instance.listeners:
                     instance.listeners[listener_type] = []
+        else:
+            # Fallback
+            for lt in ["message", "callback_query", "inline_query", "edited_message"]:
+                if lt not in instance.listeners:
+                    instance.listeners[lt] = []
         
         try:
             multi_clients[client_id] = await instance.start()
