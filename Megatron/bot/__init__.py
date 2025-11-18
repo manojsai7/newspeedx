@@ -1,30 +1,29 @@
-from collections import defaultdict
-
 from pyrogram import Client
 
 from ..vars import Var
 
-# Monkey-patch Client to ensure listeners dict is always initialized
+# Monkey-patch Client to ensure listeners dict is always initialized BEFORE pyromod
 _original_client_init = Client.__init__
 
 def _patched_client_init(self, *args, **kwargs):
     _original_client_init(self, *args, **kwargs)
-    # Ensure listeners attribute exists and is a defaultdict
+    # Ensure listeners is a regular dict (not defaultdict - pyromod doesn't like that)
     if not hasattr(self, 'listeners'):
-        self.listeners = defaultdict(list)
-    elif not isinstance(self.listeners, defaultdict):
-        # convert existing structure to defaultdict(list)
-        self.listeners = defaultdict(list, getattr(self, 'listeners', {}))
+        self.listeners = {}
+    elif not isinstance(self.listeners, dict):
+        self.listeners = {}
 
 Client.__init__ = _patched_client_init
 
 # Now import pyromod to patch the Client class with listener methods
 try:
     from pyromod import listen  # type: ignore
+    from pyromod.listen.listen import ListenerTypes
     pyromod_available = True
 except Exception as e:
     print(f"Warning: Could not import pyromod: {e}")
     pyromod_available = False
+    ListenerTypes = None
 
 StreamBot = Client(
     name=Var.SESSION_NAME,
@@ -37,31 +36,19 @@ StreamBot = Client(
     workers=Var.WORKERS,
 )
 
-# Initialize all listener types as empty dicts
-if pyromod_available:
-    try:
-        from pyromod.listen.listen import ListenerTypes
-    except ImportError:
-        try:
-            from pyromod.listen import ListenerTypes
-        except ImportError:
-            try:
-                import pyromod
-                ListenerTypes = pyromod.listen.listen.ListenerTypes
-            except:
-                ListenerTypes = None
+# Initialize all listener types as empty lists in the dict
+if pyromod_available and ListenerTypes:
+    # Ensure listeners is a regular dict
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    elif not isinstance(StreamBot.listeners, dict):
+        StreamBot.listeners = {}
     
-    if ListenerTypes:
-        # Ensure listeners is a dict
-        if not hasattr(StreamBot, 'listeners'):
-            StreamBot.listeners = defaultdict(list)
-        elif not isinstance(StreamBot.listeners, defaultdict):
-            StreamBot.listeners = defaultdict(list, dict(StreamBot.listeners))
-        
-        # Initialize each listener type as empty dict
-        for listener_type in ListenerTypes:
-            StreamBot.listeners[listener_type]
-        print(f"[Pyromod] Initialized {len(StreamBot.listeners)} listener types as dicts")
+    # Initialize each listener type as an empty list
+    for listener_type in ListenerTypes:
+        if listener_type not in StreamBot.listeners:
+            StreamBot.listeners[listener_type] = []
+    print(f"[Pyromod] Initialized {len(StreamBot.listeners)} listener types as empty lists")
 
 multi_clients = {}
 work_loads = {}
