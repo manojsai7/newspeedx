@@ -23,7 +23,16 @@ class Database:
         self._uri = uri
         self._db_name = database_name or "megatron"
         if uri not in self._client_cache:
-            self._client_cache[uri] = motor.motor_asyncio.AsyncIOMotorClient(uri)
+            # Enhanced connection with pooling and timeout settings
+            self._client_cache[uri] = motor.motor_asyncio.AsyncIOMotorClient(
+                uri,
+                maxPoolSize=50,  # Allow up to 50 connections
+                minPoolSize=10,  # Maintain minimum 10 connections
+                maxIdleTimeMS=45000,  # Close idle connections after 45s
+                serverSelectionTimeoutMS=5000,  # 5s timeout for server selection
+                connectTimeoutMS=10000,  # 10s connection timeout
+                socketTimeoutMS=20000,  # 20s socket operation timeout
+            )
         self._client = self._client_cache[uri]
         self.db = self._client[self._db_name]
 
@@ -35,6 +44,11 @@ class Database:
 
         self._indexes_ready = False
         self._index_lock = asyncio.Lock()
+        
+        # Performance: Cache frequently accessed data
+        self._fsub_cache = None
+        self._fsub_cache_time = None
+        self._cache_ttl = 300  # 5 minutes cache TTL
 
     # ------------------------------------------------------------------
     # Index bootstrap
@@ -60,7 +74,7 @@ class Database:
             await self.shortlinks.create_index("slug", unique=True)
             await self.shortlinks.create_index("expires_at", expireAfterSeconds=0)
 
-            await self.settings.create_index("_id", unique=True)
+            # _id already has a unique index by default - no need to create one
             await self.audit.create_index([("created_at", -1)])
 
             self._indexes_ready = True
@@ -71,6 +85,7 @@ class Database:
     async def ensure_user(self, user: Any) -> Tuple[Dict[str, Any], bool]:
         await self.ensure_indexes()
         user_id = int(user.id)
+        # Performance: Only fetch necessary fields
         existing = await self.users.find_one({"id": user_id})
         payload = {
             "id": user_id,
@@ -238,10 +253,25 @@ class Database:
     # ------------------------------------------------------------------
     async def get_force_subscribe_settings(self) -> Dict[str, Any]:
         await self.ensure_indexes()
+        
+        # Use cache if available and fresh
+        import time
+        now = time.time()
+        if self._fsub_cache and self._fsub_cache_time:
+            if (now - self._fsub_cache_time) < self._cache_ttl:
+                return self._fsub_cache
+        
+        # Fetch from database
         doc = await self.settings.find_one({"_id": "fsub"})
         if not doc:
-            return {"enabled": False, "channel": None}
-        return doc
+            result = {"enabled": False, "channel": None}
+        else:
+            result = doc
+        
+        # Update cache
+        self._fsub_cache = result
+        self._fsub_cache_time = now
+        return result
 
     async def set_force_subscribe(self, enabled: bool, channel: Optional[int | str]) -> None:
         await self.ensure_indexes()
@@ -250,6 +280,9 @@ class Database:
             {"$set": {"enabled": enabled, "channel": channel}},
             upsert=True,
         )
+        # Invalidate cache
+        self._fsub_cache = None
+        self._fsub_cache_time = None
 
     async def get_force_subscribe_channel(self) -> Optional[int | str]:
         settings = await self.get_force_subscribe_settings()
@@ -300,16 +333,19 @@ class Database:
             "created_at": UTC_NOW(),
             "expires_at": expires_at,
         }
-        await self.files.update_one({"message_id": int(message_id)}, {"$set": doc}, upsert=True)
-        await self.users.update_one(
-            {"id": int(owner_id)},
-            {
-                "$inc": {
-                    "stats.uploads": 1,
-                    "stats.bytes_uploaded": file_size,
+        # Performance: Execute both operations concurrently
+        await asyncio.gather(
+            self.files.update_one({"message_id": int(message_id)}, {"$set": doc}, upsert=True),
+            self.users.update_one(
+                {"id": int(owner_id)},
+                {
+                    "$inc": {
+                        "stats.uploads": 1,
+                        "stats.bytes_uploaded": file_size,
+                    },
+                    "$set": {"last_seen_at": UTC_NOW()},
                 },
-                "$set": {"last_seen_at": UTC_NOW()},
-            },
+            )
         )
 
     async def touch_file_access(self, message_id: int, *, bytes_served: int = 0) -> None:

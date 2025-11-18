@@ -1,3 +1,4 @@
+import logging
 from pyrogram import enums, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -23,9 +24,23 @@ def _home_keyboard() -> InlineKeyboardMarkup:
 
 @StreamBot.on_message(filters.command("start") & filters.private)
 async def start_handler(bot, message: Message) -> None:
-    user_doc, created = await db.ensure_user(message.from_user)
+    try:
+        user_doc, created = await db.ensure_user(message.from_user)
+    except Exception as e:
+        logging.error(f"[DATABASE] Failed to ensure user {message.from_user.id}: {e}")
+        await message.reply_text(
+            "⚠️ Service temporarily unavailable. Please try again in a moment.",
+            disable_web_page_preview=True,
+        )
+        return
 
-    if await db.is_user_banned(message.from_user.id):
+    try:
+        is_banned = await db.is_user_banned(message.from_user.id)
+    except Exception as e:
+        logging.error(f"[DATABASE] Failed to check ban status for {message.from_user.id}: {e}")
+        is_banned = False  # Fail open on database errors
+    
+    if is_banned:
         await message.reply_text(
             "🚫 You are currently banned from using this service. Contact support if you believe this is a mistake.",
             disable_web_page_preview=True,
@@ -33,10 +48,13 @@ async def start_handler(bot, message: Message) -> None:
         return
 
     if created:
-        await bot.send_message(
-            Var.BIN_CHANNEL,
-            f"#NEW_USER\n\n[{message.from_user.first_name}](tg://user?id={message.from_user.id}) started the bot.",
-        )
+        try:
+            await bot.send_message(
+                Var.BIN_CHANNEL,
+                f"#NEW_USER\n\n[{message.from_user.first_name}](tg://user?id={message.from_user.id}) started the bot.",
+            )
+        except Exception as e:
+            logging.warning(f"[NOTIFICATION] Failed to send new user notification: {e}")
 
     # Ensure force-subscribe requirement is satisfied
     fsub_result = await force_subscribe(bot, message)
@@ -64,7 +82,10 @@ async def start_handler(bot, message: Message) -> None:
 
 @StreamBot.on_message(filters.command("help") & filters.private)
 async def help_handler(bot, message: Message) -> None:
-    await db.ensure_user(message.from_user)
+    try:
+        await db.ensure_user(message.from_user)
+    except Exception as e:
+        logging.error(f"[DATABASE] Failed to ensure user in help handler: {e}")
 
     fsub_result = await force_subscribe(bot, message)
     if fsub_result == 400:

@@ -43,27 +43,45 @@ def detect_type(m: Message):
     group=4,
 )
 async def media_receive_handler(c: Client, m: Message):
-    # Log to verify this handler is triggered
-    logging.debug(f"[PRIVATE] Received media from user {m.from_user.id} - {m.from_user.first_name}")
-    _, created = await db.ensure_user(m.from_user)
-    if created:
-        await c.send_message(
-            Var.BIN_CHANNEL,
-            f"#NEW_USER: \n\nNew User [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started the bot."
-        )
-    else:
-        await db.mark_user_seen(m.from_user.id)
-    
-    # Check force subscribe (dynamic or static)
-    fsub_channel = await db.get_force_subscribe_channel()
-    if fsub_channel is None:
-        fsub_channel = Var.UPDATES_CHANNEL
-    
-    if fsub_channel:
-        fsub = await force_subscribe(c, m)
-        if fsub != 200:
-            return    
     try:
+        # Log to verify this handler is triggered
+        logging.debug(f"[PRIVATE] Received media from user {m.from_user.id} - {m.from_user.first_name}")
+        
+        try:
+            _, created = await db.ensure_user(m.from_user)
+        except Exception as e:
+            logging.error(f"[DATABASE] Failed to ensure user: {e}")
+            await m.reply_text("⚠️ Database temporarily unavailable. Please try again.")
+            return
+        if created:
+            try:
+                await c.send_message(
+                    Var.BIN_CHANNEL,
+                    f"#NEW_USER: \n\nNew User [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started the bot."
+                )
+            except Exception as e:
+                logging.warning(f"[NOTIFICATION] Failed to send new user notification: {e}")
+        else:
+            try:
+                await db.mark_user_seen(m.from_user.id)
+            except Exception as e:
+                logging.warning(f"[DATABASE] Failed to mark user seen: {e}")
+        
+        # Check force subscribe (dynamic or static)
+        try:
+            fsub_channel = await db.get_force_subscribe_channel()
+        except Exception as e:
+            logging.warning(f"[DATABASE] Failed to get fsub channel, using static: {e}")
+            fsub_channel = Var.UPDATES_CHANNEL
+        
+        if fsub_channel is None:
+            fsub_channel = Var.UPDATES_CHANNEL
+        
+        if fsub_channel:
+            fsub = await force_subscribe(c, m)
+            if fsub != 200:
+                return
+        
         file_size = None
         if m.video:
             file_size = f"{humanbytes(m.video.file_size)}"
@@ -73,6 +91,7 @@ async def media_receive_handler(c: Client, m: Message):
             file_size = f"{humanbytes(m.audio.file_size)}"
         elif m.photo:
             file_size = f"{humanbytes(m.photo.file_size)}"
+        
         file_name = None
         if m.video:
             file_name = f"{m.video.file_name}"
@@ -82,10 +101,12 @@ async def media_receive_handler(c: Client, m: Message):
             file_name = f"{m.audio.file_name}"
         elif m.photo:
             file_name = f"{m.photo.file_id}"
+        
         file = detect_type(m)
         file_name = ''
         if file:
             file_name = file.file_name
+        
         log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
         stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(get_name(m))}?hash={get_hash(log_msg)}"
         short_link = f"{Var.URL}{get_hash(log_msg)}{log_msg.id}"
@@ -101,7 +122,8 @@ async def media_receive_handler(c: Client, m: Message):
                 InlineKeyboardButton("🚫 Ban User", callback_data=f"ban_{m.from_user.id}"),
                 InlineKeyboardButton("✅ Unban User", callback_data=f"unban_{m.from_user.id}")
             ]])
-        ) 
+        )
+        
         await m.reply_text(
             text=msg_text, 
             reply_markup=InlineKeyboardMarkup(
@@ -113,27 +135,52 @@ async def media_receive_handler(c: Client, m: Message):
             quote=True, 
             parse_mode=enums.ParseMode.MARKDOWN
         )
+        
     except FloodWait as e:
-        print(f"Sleeping for {str(e.x)}s")
+        logging.warning(f"[FLOODWAIT] Sleeping for {e.x}s")
         await asyncio.sleep(e.x)
-        await c.send_message(chat_id=Var.BIN_CHANNEL, text=f"Got FloodWait of {str(e.x)}s from [{m.from_user.first_name}](tg://user?id={m.from_user.id})\n\n**User ID:** `{str(m.from_user.id)}`", disable_web_page_preview=True, parse_mode=enums.ParseMode.MARKDOWN)
+        try:
+            await c.send_message(
+                chat_id=Var.BIN_CHANNEL, 
+                text=f"Got FloodWait of {str(e.x)}s from [{m.from_user.first_name}](tg://user?id={m.from_user.id})\n\n**User ID:** `{str(m.from_user.id)}`", 
+                disable_web_page_preview=True, 
+                parse_mode=enums.ParseMode.MARKDOWN
+            )
+        except Exception as notify_err:
+            logging.error(f"[NOTIFICATION] Failed to send FloodWait notification: {notify_err}")
+    except Exception as e:
+        logging.error(f"[ERROR] Failed to process media from user {m.from_user.id}: {e}", exc_info=True)
+        try:
+            await m.reply_text(
+                "⚠️ An error occurred while processing your file. Please try again or contact support.",
+                quote=True
+            )
+        except Exception:
+            pass  # Fail silently if we can't even send error message
 
 
 @StreamBot.on_message(filters.channel & ~filters.chat(Var.BIN_CHANNEL) & ~filters.bot & (filters.document | filters.video | filters.photo) & not_edited & ~filters.forwarded, group=-1)
 async def channel_receive_handler(bot, broadcast):
     # Log to verify if this handler is triggered incorrectly
     logging.debug(f"[CHANNEL] Received media from channel {broadcast.chat.id} - {broadcast.chat.title}")
+    
     if int(broadcast.chat.id) in Var.BANNED_CHANNELS:
-        await bot.leave_chat(broadcast.chat.id)
+        try:
+            await bot.leave_chat(broadcast.chat.id)
+        except Exception as e:
+            logging.warning(f"[CHANNEL] Failed to leave banned channel {broadcast.chat.id}: {e}")
         return
+    
     try:
         log_msg = await broadcast.forward(chat_id=Var.BIN_CHANNEL)
         stream_link = f"{Var.URL}{log_msg.message_id}/{quote_plus(get_name(broadcast))}?hash={get_hash(log_msg)}"
+        
         await log_msg.reply_text(
             text=f"**Channel Name:** `{broadcast.chat.title}`\n**Channel ID:** `{broadcast.chat.id}`\n**Link:** {stream_link}",
             quote=True,
             parse_mode=enums.ParseMode.MARKDOWN
         )
+        
         await bot.edit_message_reply_markup(
             chat_id=broadcast.chat.id,
             message_id=broadcast.message_id,
@@ -144,10 +191,25 @@ async def channel_receive_handler(bot, broadcast):
             )
         )
     except FloodWait as w:
-        print(f"Sleeping for {str(w.x)}s")
+        logging.warning(f"[FLOODWAIT] Sleeping for {w.x}s from channel {broadcast.chat.title}")
         await asyncio.sleep(w.x)
-        await bot.send_message(chat_id=Var.BIN_CHANNEL,
-                             text=f"Got FloodWait of {str(w.x)}s from {broadcast.chat.title}\n\n**Channel ID:** `{str(broadcast.chat.id)}`",
-                             disable_web_page_preview=True, parse_mode=enums.ParseMode.MARKDOWN)
+        try:
+            await bot.send_message(
+                chat_id=Var.BIN_CHANNEL,
+                text=f"Got FloodWait of {str(w.x)}s from {broadcast.chat.title}\n\n**Channel ID:** `{str(broadcast.chat.id)}`",
+                disable_web_page_preview=True, 
+                parse_mode=enums.ParseMode.MARKDOWN
+            )
+        except Exception as notify_err:
+            logging.error(f"[NOTIFICATION] Failed to send FloodWait notification: {notify_err}")
     except Exception as e:
-        await bot.send_message(chat_id=Var.BIN_CHANNEL, text=f"#ERROR_TRACEBACK: `{e}`", disable_web_page_preview=True, parse_mode=enums.ParseMode.MARKDOWN)
+        logging.error(f"[ERROR] Channel handler error for {broadcast.chat.id}: {e}", exc_info=True)
+        try:
+            await bot.send_message(
+                chat_id=Var.BIN_CHANNEL, 
+                text=f"#ERROR_TRACEBACK: `{e}`", 
+                disable_web_page_preview=True, 
+                parse_mode=enums.ParseMode.MARKDOWN
+            )
+        except Exception:
+            pass  # Fail silently
