@@ -9,3 +9,5 @@ requests
 tgcrypto
 # PyroBlack 2.6.x bundles Pyrogram 2.x, which fixes Telegram's 64-bit ID regression
 pyroblack==2.6.0
+pytest
+pytest-aiohttp

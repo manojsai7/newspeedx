@@ -37,6 +37,8 @@ async def root_route_handler(_):
 async def stream_handler(request: web.Request):
     try:
         path = request.match_info["path"]
+        if path.lower() == "favicon.ico":
+            raise web.HTTPNotFound()
         match = re.search(r"^([a-zA-Z0-9_-]{6})(\d+)$", path)
         if match:
             secure_hash = match.group(1)
