@@ -1,4 +1,3 @@
-import asyncio
 from requests import post
 
 from pyrogram import Client, filters, enums
@@ -6,11 +5,11 @@ from pyrogram.errors import UserNotParticipant
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from Megatron.vars import Var
-from Megatron.bot import StreamBot
 
 @StreamBot.on_message(filters.command("nim") & filters.private)
 async def nimdownloader(c: Client, m: Message):
     if Var.UPDATES_CHANNEL is not None:
+        invite_link = None
         try:
             invite_link = await c.create_chat_invite_link(Var.UPDATES_CHANNEL)
             user = await c.get_chat_member(Var.UPDATES_CHANNEL, m.chat.id)
@@ -23,13 +22,15 @@ async def nimdownloader(c: Client, m: Message):
                 )
                 return
         except UserNotParticipant:
+            fallback_slug = str(Var.UPDATES_CHANNEL).lstrip("@") if Var.UPDATES_CHANNEL else ""
+            join_url = invite_link.invite_link if invite_link else f"https://t.me/{fallback_slug}" if fallback_slug else None
             await c.send_message(
                 chat_id=m.chat.id,
                 text="**Please join updates channel to use me**\nOnly channel subscribers can use the bot\nAfter joining tap help button\n\n✨.",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [
-                            InlineKeyboardButton("✵ Join Updates Channel ✵", url=invite_link.invite_link)
+                            InlineKeyboardButton("✵ Join Updates Channel ✵", url=join_url or "https://t.me")
                         ]
                     ]
                 ),
@@ -43,16 +44,26 @@ async def nimdownloader(c: Client, m: Message):
                 parse_mode=enums.ParseMode.MARKDOWN,
                 disable_web_page_preview=True)
             return
-    chat = m.chat
-    while True:
-        url = await StreamBot.ask(chat.id, "⚠️This part is only for Iranian users⚠️\n\n**")
-        if not url.text:
-            continue
-        txt = url.text.strip()
-        if txt.startswith("/"):
-            continue
-        if "http" in url.text.lower():
-            break
+    # Determine URL from command argument or replied message
+    txt = None
+    if len(m.command) > 1:
+        txt = m.text.split(maxsplit=1)[1].strip()
+    elif m.reply_to_message:
+        if m.reply_to_message.text:
+            txt = m.reply_to_message.text.strip()
+        elif m.reply_to_message.caption:
+            txt = m.reply_to_message.caption.strip()
+
+    if not txt:
+        await m.reply_text(
+            "برای دریافت لینک نیم‌بها، دستور را به شکل `/nim <url>` ارسال کنید یا روی پیامی که حاوی لینک است ریپلای و سپس دستور `/nim` را بزنید.",
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+        return
+
+    if txt.startswith("/") or "http" not in txt.lower():
+        await m.reply_text("لطفا یک لینک معتبر ارسال کنید.")
+        return
     try:
         url = "https://www.digitalbam.ir/DirectLinkDownloader/Download"
         data = {"downloadUri":txt}
@@ -71,6 +82,5 @@ async def nimdownloader(c: Client, m: Message):
             quote=True
         )
     except Exception as e:
-        #await StreamBot.send_message(chat.id, f"**ERROR:** `{str(e)}`")
-        await StreamBot.send_message(chat.id, "**اروری رخ داده است. لطفا بعد 1 دقیقه مجددا امتحان نمایید. در صورت رخداد مجدد مشکل را در چنل پشتیبانی بیان نمایید. با تشکر 🌺**")
+        await c.send_message(m.chat.id, "**اروری رخ داده است. لطفا بعد 1 دقیقه مجددا امتحان نمایید. در صورت رخداد مجدد مشکل را در چنل پشتیبانی بیان نمایید. با تشکر 🌺**")
         return
