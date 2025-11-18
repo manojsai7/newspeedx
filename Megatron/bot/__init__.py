@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from pyrogram import Client
 
 from ..vars import Var
@@ -20,22 +22,25 @@ StreamBot = Client(
     workers=Var.WORKERS,
 )
 
-# Initialize pyromod listeners dict
+# Initialize pyromod listeners dict as defaultdict(list) for safe lookups
 try:
     from pyromod.listen import ListenerTypes
-    # Initialize listeners as empty dict with all listener types
-    if not hasattr(StreamBot, 'listeners'):
-        StreamBot.listeners = {}
+    initial = getattr(StreamBot, "listeners", {}) or {}
+    StreamBot.listeners = defaultdict(list, initial)
     for listener_type in ListenerTypes:
-        if listener_type not in StreamBot.listeners:
-            StreamBot.listeners[listener_type] = []
+        _ = StreamBot.listeners[listener_type]
 except (ImportError, AttributeError):
-    # Fallback initialization
-    if not hasattr(StreamBot, 'listeners'):
-        StreamBot.listeners = {}
-    for key in ['message', 'callback_query', 'inline_query', 'edited_message', 'chosen_inline_result', 'shipping_query']:
-        if key not in StreamBot.listeners:
-            StreamBot.listeners[key] = []
+    initial = getattr(StreamBot, "listeners", {}) or {}
+    StreamBot.listeners = defaultdict(list, initial)
+    for key in [
+        "message",
+        "callback_query",
+        "inline_query",
+        "edited_message",
+        "chosen_inline_result",
+        "shipping_query",
+    ]:
+        _ = StreamBot.listeners[key]
 
 multi_clients = {}
 work_loads = {}

@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 
 from pyrogram import Client
 from pyrogram.errors import FloodWait
@@ -31,17 +32,22 @@ async def initialize_clients():
         # Initialize listeners for pyromod
         try:
             from pyromod.listen import ListenerTypes
-            if not hasattr(instance, 'listeners'):
-                instance.listeners = {}
+            initial = getattr(instance, "listeners", {}) or {}
+            instance.listeners = defaultdict(list, initial)
             for listener_type in ListenerTypes:
-                if listener_type not in instance.listeners:
-                    instance.listeners[listener_type] = []
+                _ = instance.listeners[listener_type]
         except (ImportError, AttributeError):
-            if not hasattr(instance, 'listeners'):
-                instance.listeners = {}
-            for key in ['message', 'callback_query', 'inline_query', 'edited_message', 'chosen_inline_result', 'shipping_query']:
-                if key not in instance.listeners:
-                    instance.listeners[key] = []
+            initial = getattr(instance, "listeners", {}) or {}
+            instance.listeners = defaultdict(list, initial)
+            for key in [
+                "message",
+                "callback_query",
+                "inline_query",
+                "edited_message",
+                "chosen_inline_result",
+                "shipping_query",
+            ]:
+                _ = instance.listeners[key]
         
         try:
             multi_clients[client_id] = await instance.start()
