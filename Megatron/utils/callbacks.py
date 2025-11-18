@@ -1,11 +1,11 @@
-from pyrogram import enums
+from pyrogram import enums, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.errors import UserNotParticipant
 
 from Megatron.bot import StreamBot
 from Megatron.vars import Var
 
-@StreamBot.on_callback_query()
+@StreamBot.on_callback_query(filters.regex(r"^(refreshmeh|ban_|unban_|noop)"))
 async def button(bot, cmd: CallbackQuery):
     cb_data = cmd.data or ""
     if "refreshmeh" in cb_data:
