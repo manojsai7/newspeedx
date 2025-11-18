@@ -15,6 +15,21 @@ def _patched_client_init(self, *args, **kwargs):
 
 Client.__init__ = _patched_client_init
 
+
+def _ensure_listeners_dict(client):
+    listeners = getattr(client, "listeners", None)
+    if not isinstance(listeners, dict):
+        listeners = {}
+        client.listeners = listeners
+    return listeners
+
+
+def _ensure_listener_bucket(client, listener_type):
+    listeners = _ensure_listeners_dict(client)
+    if listener_type not in listeners:
+        listeners[listener_type] = []
+    return listeners[listener_type]
+
 # Now import pyromod to patch the Client class with listener methods
 try:
     from pyromod import listen  # type: ignore
@@ -46,6 +61,16 @@ if pyromod_available:
                     INLINE_QUERY = "inline_query"
                     EDITED_MESSAGE = "edited_message"
 
+    # Patch pyromod's helper methods to auto-create missing listener buckets
+    original_get_listener = getattr(Client, "get_listener_matching_with_data", None)
+    if callable(original_get_listener):
+        def _safe_get_listener_matching_with_data(self, data, listener_type, *args, **kwargs):
+            _ensure_listener_bucket(self, listener_type)
+            return original_get_listener(self, data, listener_type, *args, **kwargs)
+
+        Client._original_get_listener_matching_with_data = original_get_listener  # type: ignore[attr-defined]
+        Client.get_listener_matching_with_data = _safe_get_listener_matching_with_data  # type: ignore[assignment]
+
 StreamBot = Client(
     name=Var.SESSION_NAME,
     api_id=Var.API_ID,
@@ -60,23 +85,18 @@ StreamBot = Client(
 # Initialize all listener types as empty lists in the dict - ALWAYS do this if pyromod loaded
 if pyromod_available:
     # Ensure listeners is a regular dict
-    if not hasattr(StreamBot, 'listeners'):
-        StreamBot.listeners = {}
-    elif not isinstance(StreamBot.listeners, dict):
-        StreamBot.listeners = {}
+    _ensure_listeners_dict(StreamBot)
     
     # Initialize each listener type as an empty list
     if ListenerTypes:
         for listener_type in ListenerTypes:
-            if listener_type not in StreamBot.listeners:
-                StreamBot.listeners[listener_type] = []
+            _ensure_listener_bucket(StreamBot, listener_type)
         print(f"[Pyromod] Initialized {len(StreamBot.listeners)} listener types as empty lists")
     else:
         # If ListenerTypes couldn't be imported, initialize common ones manually
         common_types = ["message", "callback_query", "inline_query", "edited_message"]
         for lt in common_types:
-            if lt not in StreamBot.listeners:
-                StreamBot.listeners[lt] = []
+            _ensure_listener_bucket(StreamBot, lt)
         print(f"[Pyromod] Initialized {len(StreamBot.listeners)} fallback listener types")
 
 multi_clients = {}
