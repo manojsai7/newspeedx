@@ -4,7 +4,13 @@ from pyrogram import Client
 from pyrogram.errors import FloodWait
 
 from Megatron.utils import TokenParser
-from . import multi_clients, work_loads, StreamBot
+from . import (
+    StreamBot,
+    _ensure_listener_bucket,
+    _ensure_listeners_dict,
+    multi_clients,
+    work_loads,
+)
 from ..vars import Var
 
 async def initialize_clients():
@@ -27,20 +33,15 @@ async def initialize_clients():
                 # Use string keys as fallback
                 ListenerTypes = None
     
-    if not hasattr(StreamBot, 'listeners'):
-        StreamBot.listeners = {}
-    elif not isinstance(StreamBot.listeners, dict):
-        StreamBot.listeners = {}
+    _ensure_listeners_dict(StreamBot)
         
     if ListenerTypes:
         for listener_type in ListenerTypes:
-            if listener_type not in StreamBot.listeners:
-                StreamBot.listeners[listener_type] = []
+            _ensure_listener_bucket(StreamBot, listener_type)
     else:
         # Fallback to common listener types as strings
         for lt in ["message", "callback_query", "inline_query", "edited_message"]:
-            if lt not in StreamBot.listeners:
-                StreamBot.listeners[lt] = []
+            _ensure_listener_bucket(StreamBot, lt)
     
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
@@ -59,20 +60,15 @@ async def initialize_clients():
         )
         
         # Initialize pyromod listeners for each client instance
-        if not hasattr(instance, 'listeners'):
-            instance.listeners = {}
-        elif not isinstance(instance.listeners, dict):
-            instance.listeners = {}
+        _ensure_listeners_dict(instance)
 
         if ListenerTypes:
             for listener_type in ListenerTypes:
-                if listener_type not in instance.listeners:
-                    instance.listeners[listener_type] = []
+                _ensure_listener_bucket(instance, listener_type)
         else:
             # Fallback
             for lt in ["message", "callback_query", "inline_query", "edited_message"]:
-                if lt not in instance.listeners:
-                    instance.listeners[lt] = []
+                _ensure_listener_bucket(instance, lt)
         
         try:
             multi_clients[client_id] = await instance.start()

@@ -2,24 +2,39 @@ from pyrogram import Client
 
 from ..vars import Var
 
+
+class ListenerStore(dict):
+    """Dict subclass that auto-creates empty lists for missing listener keys."""
+
+    def ensure_bucket(self, key):
+        bucket = super().get(key)
+        if bucket is None:
+            bucket = []
+            super().__setitem__(key, bucket)
+        return bucket
+
+    def __missing__(self, key):
+        return self.ensure_bucket(key)
+
+
 # Monkey-patch Client to ensure listeners dict is always initialized BEFORE pyromod
 _original_client_init = Client.__init__
 
+
 def _patched_client_init(self, *args, **kwargs):
     _original_client_init(self, *args, **kwargs)
-    # Ensure listeners is a regular dict (not defaultdict - pyromod doesn't like that)
-    if not hasattr(self, 'listeners'):
-        self.listeners = {}
-    elif not isinstance(self.listeners, dict):
-        self.listeners = {}
+    listeners = getattr(self, "listeners", None)
+    if not isinstance(listeners, ListenerStore):
+        listeners = ListenerStore(listeners or {})
+        self.listeners = listeners
 
 Client.__init__ = _patched_client_init
 
 
 def _ensure_listeners_dict(client):
     listeners = getattr(client, "listeners", None)
-    if not isinstance(listeners, dict):
-        listeners = {}
+    if not isinstance(listeners, ListenerStore):
+        listeners = ListenerStore(listeners or {})
         client.listeners = listeners
     return listeners
 
@@ -61,15 +76,6 @@ if pyromod_available:
                     INLINE_QUERY = "inline_query"
                     EDITED_MESSAGE = "edited_message"
 
-    # Patch pyromod's helper methods to auto-create missing listener buckets
-    original_get_listener = getattr(Client, "get_listener_matching_with_data", None)
-    if callable(original_get_listener):
-        def _safe_get_listener_matching_with_data(self, data, listener_type, *args, **kwargs):
-            _ensure_listener_bucket(self, listener_type)
-            return original_get_listener(self, data, listener_type, *args, **kwargs)
-
-        Client._original_get_listener_matching_with_data = original_get_listener  # type: ignore[attr-defined]
-        Client.get_listener_matching_with_data = _safe_get_listener_matching_with_data  # type: ignore[assignment]
 
 StreamBot = Client(
     name=Var.SESSION_NAME,
