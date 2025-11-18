@@ -2,7 +2,7 @@ from pyrogram import Client
 
 from ..vars import Var
 
-# Simple pyromod import - let it handle its own initialization
+# Import pyromod before creating client
 try:
     import pyromod
     print("✓ Pyromod imported successfully")
@@ -19,6 +19,23 @@ StreamBot = Client(
     sleep_threshold=Var.SLEEP_THRESHOLD,
     workers=Var.WORKERS,
 )
+
+# Initialize pyromod listeners dict
+try:
+    from pyromod.listen import ListenerTypes
+    # Initialize listeners as empty dict with all listener types
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    for listener_type in ListenerTypes:
+        if listener_type not in StreamBot.listeners:
+            StreamBot.listeners[listener_type] = []
+except (ImportError, AttributeError):
+    # Fallback initialization
+    if not hasattr(StreamBot, 'listeners'):
+        StreamBot.listeners = {}
+    for key in ['message', 'callback_query', 'inline_query', 'edited_message', 'chosen_inline_result', 'shipping_query']:
+        if key not in StreamBot.listeners:
+            StreamBot.listeners[key] = []
 
 multi_clients = {}
 work_loads = {}
