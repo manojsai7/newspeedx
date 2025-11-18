@@ -1,15 +1,21 @@
 import asyncio
 import traceback
-from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
+
+from pyrogram.errors import FloodWait, InputUserDeactivated, PeerIdInvalid, UserIsBlocked
+
+from Megatron.vars import Var
 
 
 async def send_msg(user_id, message):
     try:
-        await message.forward(chat_id=user_id)
+        if Var.BROADCAST_AS_COPY:
+            await message.copy(chat_id=user_id)
+        else:
+            await message.forward(chat_id=user_id)
         return 200, None
     except FloodWait as e:
         await asyncio.sleep(e.x)
-        return send_msg(user_id, message)
+        return await send_msg(user_id, message)
     except InputUserDeactivated:
         return 400, f"{user_id} : deactivated\n"
     except UserIsBlocked:

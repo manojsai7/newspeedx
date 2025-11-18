@@ -8,23 +8,68 @@ Megatron File Stream Telegram Bot
 
 ## Configuration
 
-Before running or deploying the bot you **must** provide your own Telegram credentials via environment variables (a leaked default token triggers `ACCESS_TOKEN_EXPIRED` errors). Set the following variables in your `.env`, hosting dashboard, or shell:
+Copy `.env.example` to `.env` (or configure your hosting provider) and fill in the values listed below. The bot will refuse to boot if any required variable is missing.
 
-| Variable | Required | Description |
+### Required environment variables
+
+| Variable | Description |
+| --- | --- |
+| `API_ID` | Your Telegram API ID from [my.telegram.org](https://my.telegram.org) |
+| `API_HASH` | API hash paired with the `API_ID` |
+| `BOT_TOKEN` | Bot token from @BotFather (regenerate if Telegram says it expired) |
+| `OWNER_ID` | Numeric Telegram user ID allowed to run owner commands |
+| `BIN_CHANNEL` | **Numeric** channel ID (must start with `-100`) where uploads are stored |
+| `DATABASE_URL` | MongoDB connection string (Motor) used for users, files, force-subscribe state, audits, short links |
+
+> ℹ️  `DATABASE_URL` is now mandatory. All security features (signed links, rate limiting, ban sync, analytics) depend on it and the bot exits early if it is missing.
+
+### Optional behaviour toggles
+
+| Variable | Default | Description |
 | --- | --- | --- |
-| `API_ID` | ✅ | Your Telegram API ID from [my.telegram.org](https://my.telegram.org) |
-| `API_HASH` | ✅ | The API hash paired with the API ID |
-| `BOT_TOKEN` | ✅ | Bot token from @BotFather; regenerate if Telegram says it expired |
-| `BIN_CHANNEL` | ✅ | **Numeric** channel ID (must start with `-100`, e.g. `-1001234567890`) where files are stored |
-| `OWNER_ID` | ✅ | Numeric Telegram user ID used for admin operations |
-| `DATABASE_URL` | optional | MongoDB/Postgres connection string for persistence |
-| `SESSION_NAME` | optional | Custom Pyrogram session filename (defaults to `MegatronBot`) |
-| `PORT` | optional | TCP port for the aiohttp server (defaults to `8000`; set it to whatever your platform expects) |
-| `HAS_SSL`, `NO_PORT`, etc. | optional | Advanced hosting/network toggles |
-| `MAX_LOGIN_FLOODWAIT` | optional | Upper bound (in seconds) Megatron will wait when Telegram throttles bot logins (defaults to 900) |
-| `SKIP_BIN_VALIDATION` | optional | Set to `true` only if you understand the risks and want to bypass BIN channel checks (not recommended) |
+| `SESSION_NAME` | `AvishkarPatil` | Custom Pyrogram session file name |
+| `WORKERS` | `6` | Number of Pyrogram worker threads |
+| `SLEEP_THRESHOLD` | `60` | Seconds to sleep when Telegram returns slow flood waits |
+| `PING_INTERVAL` | `1200` | Interval (seconds) for keep-alive pings |
+| `BROADCAST_AS_COPY` | `false` | Set `true` to send broadcasts as copies instead of forwarded messages |
+| `UPDATES_CHANNEL` | unset | Legacy fallback for force-subscribe; `/fsub` command stored in DB overrides this |
+| `BANNED_CHANNELS` | unset | Space separated list of channel IDs to ignore when forwarding |
+| `MULTI_CLIENT` | `false` | Experimental multi-session mode for high volume deployments |
 
-Copy `.env.example` to `.env` (or configure your hosting provider) and fill in the required values before starting the bot. The runtime now uses [PyroBlack 2.6.x](https://pypi.org/project/pyroblack/) (a maintained Pyrogram 2.x fork) so Telegram's 64-bit identifiers and recent API changes are handled without hacks.
+### Security, link, and quota controls
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_SECRET` | Bot token | Overrides the secret used to sign download tokens (set a random string for extra security) |
+| `LINK_TTL_SECONDS` | `43200` (12 h) | Lifetime for full download links before they expire |
+| `SHORT_LINK_TTL_SECONDS` | `604800` (7 d) | TTL for generated short slugs (when enabled) |
+| `USER_RATE_LIMIT` | `12` | Maximum actions allowed within `USER_RATE_WINDOW` seconds per user |
+| `USER_RATE_WINDOW` | `60` | Sliding window size (seconds) for the rate limiter |
+| `USER_DAILY_QUOTA` | `0` | Optional hard cap on daily downloads/uploads per user (`0` disables the quota) |
+| `MAX_FILE_SIZE_MB` | `2048` | Reject uploads larger than this many megabytes |
+
+### Network and hosting knobs
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `8000` | Aiohttp server port (honour your platform’s expectations) |
+| `WEB_SERVER_BIND_ADDRESS` | `0.0.0.0` | Bind address for the web server |
+| `HAS_SSL` | auto | Force HTTPS generation for self-hosted deployments |
+| `NO_PORT` | auto | Drop `:<port>` from generated links when behind a proxy/load balancer |
+| `APP_NAME` | auto | Optional friendly name reported in logs |
+| `FQDN` | auto | Override detected domain (set when using a custom domain) |
+| `MAX_LOGIN_FLOODWAIT` | `900` | Maximum flood wait (seconds) tolerated at login time |
+| `LOGIN_FLOODWAIT_PADDING` | `5` | Extra seconds added to flood waits to stay safe |
+
+The runtime uses [PyroBlack 2.6.x](https://pypi.org/project/pyroblack/) (a maintained Pyrogram 2.x fork) so Telegram's 64-bit identifiers and recent API changes are handled without hacks.
+
+## Feature Highlights
+
+- Signed download links backed by HMAC tokens (`APP_SECRET`) with configurable expiries and optional short slugs.
+- Dynamic force-subscribe: change the updates channel at runtime with `/fsub` and track user join status in Mongo.
+- Broadcast tooling with flood-wait aware retries and per-user success/failure counters.
+- Per-user rate limiting and optional daily quotas to protect your bandwidth.
+- Rich user telemetry: uploads/download counters, audit log, and upcoming admin dashboard hooks.
 
 ### Channel setup checklist
 
@@ -58,6 +103,7 @@ In Koyeb's **Environment Variables** section, add these:
 | `BOT_TOKEN` | `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz` | Create bot with [@BotFather](https://t.me/BotFather) |
 | `BIN_CHANNEL` | `-1001234567890` | [See Channel Setup below](#channel-setup-for-koyeb) |
 | `OWNER_ID` | `123456789` | Your Telegram user ID from [@userinfobot](https://t.me/userinfobot) |
+| `DATABASE_URL` | `mongodb+srv://user:pass@cluster.mongodb.net/megatron` | MongoDB URI (Atlas, Compose, etc.). Required for signed links, rate limiting, and force-subscribe sync |
 
 ### Optional Environment Variables for Koyeb
 
@@ -66,8 +112,10 @@ In Koyeb's **Environment Variables** section, add these:
 | `FQDN` | `your-app-name.koyeb.app` | **Auto-detected** from `KOYEB_PUBLIC_DOMAIN` if not set. Only set manually if using custom domain |
 | `APP_NAME` | `megatron-bot` | Custom name for logs (optional) |
 | `PORT` | `8000` | Web server port (default: 8000) |
-| `DATABASE_URL` | `mongodb+srv://...` | MongoDB connection string for user tracking |
-| `UPDATES_CHANNEL` | `-1001234567890` | **Optional.** Force users to join your channel before using bot. Can also be set dynamically with `/fsub` command (no restart needed) |
+| `UPDATES_CHANNEL` | `-1001234567890` | Force users to join your channel before using bot. `/fsub` command (stored in DB) overrides this |
+| `APP_SECRET` | random 32–64 chars | Overrides download-token signer; set to a strong random string for public deployments |
+| `LINK_TTL_SECONDS` | `43200` | Tune link lifespan if you need longer/shorter lived downloads |
+| `USER_RATE_LIMIT` | `12` | Raise/lower per-user throughput limits. Pair with `USER_RATE_WINDOW` and `USER_DAILY_QUOTA` |
 
 **Note:** You do NOT need to set `HAS_SSL` or `NO_PORT` for Koyeb - they're auto-detected!
 

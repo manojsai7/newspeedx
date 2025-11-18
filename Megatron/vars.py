@@ -97,7 +97,14 @@ class Var(object):
         ON_HEROKU = False
         ON_KOYEB = False
         APP_NAME = None
-    DATABASE_URL = _optional('DATABASE_URL')
+    DATABASE_URL = _require('DATABASE_URL')
+    APP_SECRET = _optional("APP_SECRET") or BOT_TOKEN
+    LINK_TTL_SECONDS = _as_int(_optional("LINK_TTL_SECONDS", "43200"), 43200)
+    SHORT_LINK_TTL_SECONDS = _as_int(_optional("SHORT_LINK_TTL_SECONDS", "604800"), 604800)
+    USER_RATE_LIMIT = _as_int(_optional("USER_RATE_LIMIT", "12"), 12)
+    USER_RATE_WINDOW = _as_int(_optional("USER_RATE_WINDOW", "60"), 60)
+    USER_DAILY_QUOTA = _as_int(_optional("USER_DAILY_QUOTA", "0"), 0)
+    MAX_FILE_SIZE_MB = _as_int(_optional("MAX_FILE_SIZE_MB", "2048"), 2048)
     UPDATES_CHANNEL = _parse_optional_channel("UPDATES_CHANNEL")
     BANNED_CHANNELS = list(
         set(

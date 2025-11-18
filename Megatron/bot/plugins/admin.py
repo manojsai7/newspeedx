@@ -5,11 +5,9 @@ import random
 import asyncio
 import aiofiles  # type: ignore
 import datetime
-import traceback
 
 from pyrogram import filters, Client, enums
 from pyrogram.types import Message
-from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 
 from Megatron.bot import StreamBot
 from Megatron.vars import Var
@@ -32,26 +30,6 @@ async def sts(c: Client, m: Message):
 @StreamBot.on_message(filters.private & filters.command("broadcast") & filters.user(Var.OWNER_ID) & filters.reply)
 async def open_broadcast_handler(bot, message):
 	await broadcast_handler(c=bot, m=message)
-
-
-async def send_msg(user_id, message):
-    try:
-        if Var.BROADCAST_AS_COPY is False:
-            await message.forward(chat_id=user_id)
-        elif Var.BROADCAST_AS_COPY is True:
-            await message.copy(chat_id=user_id)
-        return 200, None
-    except FloodWait as e:
-        await asyncio.sleep(e.x)
-        return send_msg(user_id, message)
-    except InputUserDeactivated:
-        return 400, f"{user_id} : deactivated\n"
-    except UserIsBlocked:
-        return 400, f"{user_id} : blocked the bot\n"
-    except PeerIdInvalid:
-        return 400, f"{user_id} : user id invalid\n"
-    except Exception as e:
-        return 500, f"{user_id} : {traceback.format_exc()}\n"
 
 
 async def broadcast_handler(c, m):

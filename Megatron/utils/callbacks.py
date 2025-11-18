@@ -1,144 +1,150 @@
 from pyrogram import enums, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram.errors import UserNotParticipant
+from pyrogram.errors import RPCError
+from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from Megatron.bot import StreamBot
+from Megatron.handlers.fsub import force_subscribe
+from Megatron.utils.database import Database
 from Megatron.vars import Var
 
-@StreamBot.on_callback_query(filters.regex(r"^(refreshmeh|ban_|unban_|noop)"))
-async def button(bot, cmd: CallbackQuery):
-    cb_data = cmd.data or ""
-    if "refreshmeh" in cb_data:
-        invite_link = None
-        if Var.UPDATES_CHANNEL:
-            try:
-                invite_link = await bot.create_chat_invite_link(Var.UPDATES_CHANNEL)
-                user = await bot.get_chat_member(Var.UPDATES_CHANNEL, cmd.message.chat.id)
-                if user.status == "kicked":
-                    await cmd.message.edit(
-                        text="**✨ You are Banned due not to pay attention to the rules. Contact [Support Group](https://t.me/joinchat/riq-psSksFtiMDU8) for further information if interested.\n\n✨ شما به علت عدم رعایت قوانین بن شده اید. جهت اطلاع بیشتر در صورت تمایل می توانید با [گروه پشتیبانی](https://t.me/joinchat/riq-psSksFtiMDU8) در ارتباط باشید.",
-                        parse_mode=enums.ParseMode.MARKDOWN,
-                        disable_web_page_preview=True,
-                    )
-                    return
-            except UserNotParticipant:
-                fallback_slug = str(Var.UPDATES_CHANNEL).lstrip("@") if Var.UPDATES_CHANNEL else ""
-                join_url = invite_link.invite_link if invite_link else f"https://t.me/{fallback_slug}"
-                await cmd.message.edit(
-                    text="**✨ You still haven't joined the updates channel. Only channel subscribers can use the bot.**\n\nAfter joining tap refresh button❗️**\n",
-                    reply_markup=InlineKeyboardMarkup(
+db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
+
+
+def _settings_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("🔁 Link Lifetime", callback_data="settings:not_implemented"),
+                InlineKeyboardButton("🔒 Password", callback_data="settings:not_implemented"),
+            ],
+            [InlineKeyboardButton("⬅️ Back", callback_data="settings:back")],
+        ]
+    )
+
+
+def _home_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("✵ Updates Channel ✵", url="https://t.me/+uW4Saio7cmYwNjk1"),
+                InlineKeyboardButton("😊 Donate 😊", url="https://t.me/TG_FatherBoT?start=donate"),
+            ],
+            [InlineKeyboardButton("⚙️ Settings", callback_data="settings:open")],
+        ]
+    )
+
+
+async def _require_owner(cmd: CallbackQuery) -> bool:
+    if cmd.from_user.id != Var.OWNER_ID:
+        await cmd.answer("❌ Only the bot owner can perform this action.", show_alert=True)
+        return False
+    return True
+
+
+async def _resolve_fsub_channel() -> int | str | None:
+    channel = await db.get_force_subscribe_channel()
+    return channel if channel else Var.UPDATES_CHANNEL
+
+
+@StreamBot.on_callback_query(filters.regex(r"^(refreshmeh|settings:|ban_|unban_|noop)"))
+async def button(bot, cmd: CallbackQuery) -> None:
+    data = cmd.data or ""
+
+    if data == "refreshmeh":
+        check = await force_subscribe(bot, cmd)
+        if check == 200:
+            await cmd.answer("You're good to go!", show_alert=False)
+            await cmd.message.edit_text(
+                "Thanks for confirming your subscription. Use /start again to continue.",
+                reply_markup=_home_keyboard(),
+                disable_web_page_preview=True,
+            )
+        else:
+            await cmd.answer("Join the channel and tap refresh again.", show_alert=True)
+        return
+
+    if data.startswith("settings:"):
+        action = data.split(":", 1)[1]
+        await db.ensure_user(cmd.from_user)
+
+        if action == "open":
+            await cmd.message.edit_text(
+                "⚙️ **Personal settings**\nMore controls are coming soon – stay tuned!",
+                parse_mode=enums.ParseMode.MARKDOWN,
+                reply_markup=_settings_keyboard(),
+            )
+        elif action == "back":
+            await cmd.message.edit_text(
+                "Use /start to send files or manage your uploads.",
+                reply_markup=_home_keyboard(),
+            )
+        else:
+            await cmd.answer("Settings panel is under construction.", show_alert=False)
+        return
+
+    if data.startswith("ban_"):
+        if not await _require_owner(cmd):
+            return
+
+        try:
+            target_id = int(data.split("_", 1)[1])
+            if target_id == Var.OWNER_ID:
+                await cmd.answer("You cannot ban yourself.", show_alert=True)
+                return
+
+            await db.set_user_status(target_id, "banned", reason="Manual ban", actor_id=cmd.from_user.id)
+            channel = await _resolve_fsub_channel()
+            if channel:
+                try:
+                    await bot.ban_chat_member(channel, target_id)
+                except RPCError:
+                    pass
+
+            await cmd.message.edit_reply_markup(
+                InlineKeyboardMarkup(
+                    [
                         [
-                            [InlineKeyboardButton("✵ Join Updates Channel ✵", url=join_url)],
-                            [InlineKeyboardButton("🔄 Refresh 🔄", callback_data="refreshmeh")],
+                            InlineKeyboardButton("✅ Unban User", callback_data=f"unban_{target_id}"),
+                            InlineKeyboardButton("🚫 Already Banned", callback_data="noop"),
                         ]
-                    ),
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                )
-                return
-            except Exception:
-                await cmd.message.edit(
-                    text="Something went Wrong. Contact [Support Group](https://t.me/joinchat/riq-psSksFtiMDU8).",
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                    disable_web_page_preview=True,
-                )
-                return
-        await cmd.message.edit(
-            text=f"""Hey Dear {cmd.from_user.mention(style="md")} 🙋🏻‍♂️\nI'm Telegram File to Link Generator Bot.\n\nSend me any file & get the fast direct download link!\n\n""",
-            parse_mode=enums.ParseMode.MARKDOWN,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton('✵ Updates Channel ✵', url='https://t.me/+FcsqT7u8gt1mMTdh'), InlineKeyboardButton('✵ Rules✵', url='https://t.me/highspeed_movies/7')],
-                    [InlineKeyboardButton('✵ Donate! ✵', url='https://t.me/putsextrovert/7')],
-                ]
-            ),
-            disable_web_page_preview=True,
-        )
-    elif cb_data.startswith("ban_"):
-        if cmd.from_user.id != Var.OWNER_ID:
-            await cmd.answer("❌ Only bot owner can ban users!", show_alert=True)
-            return
-        if Var.UPDATES_CHANNEL is None:
-            await cmd.answer("❌ No Updates Channel configured!\nSet UPDATES_CHANNEL or use /fsub command.", show_alert=True)
-            return
-        try:
-            user_id = int(cb_data.split("_", 1)[1])
-            
-            # Prevent owner from banning themselves
-            if user_id == Var.OWNER_ID:
-                await cmd.answer("❌ Cannot ban the bot owner!", show_alert=True)
-                return
-            
-            # Get user info
-            try:
-                user = await bot.get_users(user_id)
-                user_name = user.first_name
-                username = f"@{user.username}" if user.username else "No username"
-            except:
-                user_name = "Unknown User"
-                username = "N/A"
-            
-            # Ban the user
-            await bot.ban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=user_id)
-            
-            # Update message with ban info
-            await cmd.message.edit_reply_markup(
-                reply_markup=InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("✅ Unban User", callback_data=f"unban_{user_id}"),
-                        InlineKeyboardButton("🚫 Already Banned", callback_data="noop")
                     ]
-                ])
+                )
             )
-            
-            await cmd.answer(
-                f"✅ User Banned Successfully!\n\n"
-                f"👤 Name: {user_name}\n"
-                f"🆔 ID: {user_id}\n"
-                f"📝 Username: {username}",
-                show_alert=True
-            )
-        except Exception as e:
-            await cmd.answer(f"❌ Failed to ban user!\n\nError: {str(e)[:100]}", show_alert=True)
-    elif cb_data.startswith("unban_"):
-        if cmd.from_user.id != Var.OWNER_ID:
-            await cmd.answer("❌ Only bot owner can unban users!", show_alert=True)
+
+            await cmd.answer("User banned successfully.", show_alert=True)
+        except Exception as exc:  # pragma: no cover - defensive path
+            await cmd.answer(f"Failed to ban user: {exc}", show_alert=True)
+        return
+
+    if data.startswith("unban_"):
+        if not await _require_owner(cmd):
             return
-        if Var.UPDATES_CHANNEL is None:
-            await cmd.answer("❌ No Updates Channel configured!\nSet UPDATES_CHANNEL or use /fsub command.", show_alert=True)
-            return
+
         try:
-            user_id = int(cb_data.split("_", 1)[1])
-            
-            # Get user info
-            try:
-                user = await bot.get_users(user_id)
-                user_name = user.first_name
-                username = f"@{user.username}" if user.username else "No username"
-            except:
-                user_name = "Unknown User"
-                username = "N/A"
-            
-            # Unban the user
-            await bot.unban_chat_member(chat_id=Var.UPDATES_CHANNEL, user_id=user_id)
-            
-            # Update message with unban confirmation
+            target_id = int(data.split("_", 1)[1])
+            await db.set_user_status(target_id, "active", reason=None, actor_id=cmd.from_user.id)
+            channel = await _resolve_fsub_channel()
+            if channel:
+                try:
+                    await bot.unban_chat_member(channel, target_id)
+                except RPCError:
+                    pass
+
             await cmd.message.edit_reply_markup(
-                reply_markup=InlineKeyboardMarkup([
+                InlineKeyboardMarkup(
                     [
-                        InlineKeyboardButton("🚫 Ban User", callback_data=f"ban_{user_id}"),
-                        InlineKeyboardButton("✅ Already Unbanned", callback_data="noop")
+                        [
+                            InlineKeyboardButton("🚫 Ban User", callback_data=f"ban_{target_id}"),
+                            InlineKeyboardButton("✅ Already Unbanned", callback_data="noop"),
+                        ]
                     ]
-                ])
+                )
             )
-            
-            await cmd.answer(
-                f"✅ User Unbanned Successfully!\n\n"
-                f"👤 Name: {user_name}\n"
-                f"🆔 ID: {user_id}\n"
-                f"📝 Username: {username}",
-                show_alert=True
-            )
-        except Exception as e:
-            await cmd.answer(f"❌ Failed to unban user!\n\nError: {str(e)[:100]}", show_alert=True)
-    elif cb_data == "noop":
-        await cmd.answer("✨ This action has already been performed.", show_alert=False)
+
+            await cmd.answer("User unbanned successfully.", show_alert=True)
+        except Exception as exc:  # pragma: no cover - defensive path
+            await cmd.answer(f"Failed to unban user: {exc}", show_alert=True)
+        return
+
+    if data == "noop":
+        await cmd.answer("Nothing to do here.", show_alert=False)

@@ -1,56 +1,361 @@
+import asyncio
 import datetime
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+
 import motor.motor_asyncio
 
 
+UTC_NOW = datetime.datetime.utcnow
+
+
 class Database:
-    def __init__(self, uri, database_name):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
-        self.db = self._client[database_name]
-        self.col = self.db.users
+    """Async Mongo helper with opinionated user/file state."""
+
+    _client_cache: Dict[str, motor.motor_asyncio.AsyncIOMotorClient] = {}
+
+    def __init__(self, uri: str, database_name: str):
+        if not uri:
+            raise RuntimeError(
+                "DATABASE_URL is missing. Provide a MongoDB connection string to enable persistence and security features."
+            )
+
+        self._uri = uri
+        self._db_name = database_name or "megatron"
+        if uri not in self._client_cache:
+            self._client_cache[uri] = motor.motor_asyncio.AsyncIOMotorClient(uri)
+        self._client = self._client_cache[uri]
+        self.db = self._client[self._db_name]
+
+        self.users = self.db.users
+        self.files = self.db.files
         self.settings = self.db.settings
+        self.shortlinks = self.db.shortlinks
+        self.audit = self.db.audit
 
-    def new_user(self, id):
-        return dict(
-            id=id,
-            join_date=datetime.date.today().isoformat()
+        self._indexes_ready = False
+        self._index_lock = asyncio.Lock()
+
+    # ------------------------------------------------------------------
+    # Index bootstrap
+    # ------------------------------------------------------------------
+    async def ensure_indexes(self) -> None:
+        if self._indexes_ready:
+            return
+
+        async with self._index_lock:
+            if self._indexes_ready:
+                return
+
+            await self.users.create_index("id", unique=True)
+            await self.users.create_index([("status", 1)])
+            await self.users.create_index([("last_seen_at", -1)])
+
+            await self.files.create_index("message_id", unique=True)
+            await self.files.create_index([("owner_id", 1), ("created_at", -1)])
+            await self.files.create_index("expires_at", expireAfterSeconds=0)
+            await self.files.create_index("token", unique=True)
+
+            await self.shortlinks.create_index("slug", unique=True)
+            await self.shortlinks.create_index("expires_at", expireAfterSeconds=0)
+
+            await self.settings.create_index("_id", unique=True)
+            await self.audit.create_index([("created_at", -1)])
+
+            self._indexes_ready = True
+
+    # ------------------------------------------------------------------
+    # User helpers
+    # ------------------------------------------------------------------
+    async def ensure_user(self, user: Any) -> Tuple[Dict[str, Any], bool]:
+        await self.ensure_indexes()
+        user_id = int(user.id)
+        existing = await self.users.find_one({"id": user_id})
+        payload = {
+            "id": user_id,
+            "first_name": getattr(user, "first_name", "") or "Unknown",
+            "last_name": getattr(user, "last_name", None),
+            "username": getattr(user, "username", None),
+            "language_code": getattr(user, "language_code", None),
+            "status": "active",
+            "joined_at": UTC_NOW(),
+            "last_seen_at": UTC_NOW(),
+            "stats": {
+                "uploads": 0,
+                "downloads": 0,
+                "bytes_uploaded": 0,
+                "bytes_downloaded": 0,
+                "broadcast_success": 0,
+                "broadcast_failures": 0,
+            },
+            "settings": {
+                "link_ttl": None,
+                "short_links": True,
+                "password_required": False,
+            },
+            "flags": {
+                "banned_at": None,
+                "banned_reason": None,
+                "banned_by": None,
+            },
+            "fsub": {
+                "channel": None,
+                "last_prompt_at": None,
+                "state": "clear",
+            },
+        }
+        if existing:
+            await self.users.update_one(
+                {"id": user_id},
+                {
+                    "$set": {
+                        "first_name": payload["first_name"],
+                        "last_seen_at": UTC_NOW(),
+                        "username": payload["username"],
+                    }
+                },
+            )
+            existing.update(
+                {
+                    "first_name": payload["first_name"],
+                    "last_seen_at": UTC_NOW(),
+                    "username": payload["username"],
+                }
+            )
+            return existing, False
+
+        payload["joined_at"] = UTC_NOW()
+        payload["last_seen_at"] = payload["joined_at"]
+        await self.users.insert_one(payload)
+        return payload, True
+
+    async def mark_user_seen(self, user_id: int) -> None:
+        await self.ensure_indexes()
+        await self.users.update_one(
+            {"id": int(user_id)},
+            {"$set": {"last_seen_at": UTC_NOW()}},
         )
 
-    async def add_user(self, id):
-        user = self.new_user(id)
-        await self.col.insert_one(user)
+    async def is_user_banned(self, user_id: int) -> bool:
+        await self.ensure_indexes()
+        doc = await self.users.find_one({"id": int(user_id)}, {"status": 1})
+        return bool(doc and doc.get("status") == "banned")
 
-    async def is_user_exist(self, id):
-        user = await self.col.find_one({'id': int(id)})
-        return True if user else False
+    async def set_user_status(
+        self,
+        user_id: int,
+        status: str,
+        *,
+        reason: Optional[str] = None,
+        actor_id: Optional[int] = None,
+    ) -> None:
+        await self.ensure_indexes()
+        update = {
+            "status": status,
+            "flags.banned_reason": reason,
+            "flags.banned_by": actor_id,
+            "flags.banned_at": UTC_NOW() if status == "banned" else None,
+        }
+        await self.users.update_one({"id": int(user_id)}, {"$set": update})
 
-    async def total_users_count(self):
-        count = await self.col.count_documents({})
-        return count
+    async def update_user_preferences(self, user_id: int, **prefs: Any) -> None:
+        if not prefs:
+            return
+        await self.ensure_indexes()
+        await self.users.update_one(
+            {"id": int(user_id)},
+            {"$set": {f"settings.{k}": v for k, v in prefs.items()}},
+        )
 
-    async def get_all_users(self):
-        all_users = self.col.find({})
-        return all_users
+    async def get_user_preferences(self, user_id: int) -> Dict[str, Any]:
+        await self.ensure_indexes()
+        doc = await self.users.find_one({"id": int(user_id)}, {"settings": 1})
+        return doc.get("settings", {}) if doc else {}
 
-    async def delete_user(self, user_id):
-        await self.col.delete_many({'id': int(user_id)})
+    async def total_users_count(self) -> int:
+        await self.ensure_indexes()
+        return await self.users.count_documents({})
 
-    # Force Subscribe Settings
-    async def get_fsub_settings(self):
-        """Get force subscribe settings"""
-        settings = await self.settings.find_one({'_id': 'fsub'})
-        if not settings:
-            return {'enabled': False, 'channel': None}
-        return settings
+    async def get_all_users(self) -> AsyncIterator[Dict[str, Any]]:
+        await self.ensure_indexes()
+        cursor = self.users.find({})
+        async for doc in cursor:
+            yield doc
 
-    async def set_fsub(self, enabled: bool, channel: int = None):
-        """Enable or disable force subscribe"""
+    async def delete_user(self, user_id: int) -> None:
+        await self.ensure_indexes()
+        await self.users.delete_one({"id": int(user_id)})
+
+    # ------------------------------------------------------------------
+    # Force subscribe helpers
+    # ------------------------------------------------------------------
+    async def get_force_subscribe_settings(self) -> Dict[str, Any]:
+        await self.ensure_indexes()
+        doc = await self.settings.find_one({"_id": "fsub"})
+        if not doc:
+            return {"enabled": False, "channel": None}
+        return doc
+
+    async def set_force_subscribe(self, enabled: bool, channel: Optional[int | str]) -> None:
+        await self.ensure_indexes()
         await self.settings.update_one(
-            {'_id': 'fsub'},
-            {'$set': {'enabled': enabled, 'channel': channel}},
-            upsert=True
+            {"_id": "fsub"},
+            {"$set": {"enabled": enabled, "channel": channel}},
+            upsert=True,
         )
 
-    async def get_fsub_channel(self):
-        """Get force subscribe channel ID"""
-        settings = await self.get_fsub_settings()
-        return settings.get('channel') if settings.get('enabled') else None
+    async def get_force_subscribe_channel(self) -> Optional[int | str]:
+        settings = await self.get_force_subscribe_settings()
+        if settings.get("enabled"):
+            return settings.get("channel")
+        return None
+
+    async def mark_user_fsub_state(self, user_id: int, state: str, *, channel: Optional[int | str] = None) -> None:
+        await self.ensure_indexes()
+        await self.users.update_one(
+            {"id": int(user_id)},
+            {
+                "$set": {
+                    "fsub.state": state,
+                    "fsub.channel": channel,
+                    "fsub.last_prompt_at": UTC_NOW(),
+                }
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # File and link helpers
+    # ------------------------------------------------------------------
+    async def record_file_upload(
+        self,
+        *,
+        message_id: int,
+        owner_id: int,
+        file_name: str,
+        file_size: int,
+        mime_type: Optional[str],
+        unique_id: str,
+        token: str,
+        expires_at: datetime.datetime,
+        short_slug: Optional[str],
+    ) -> None:
+        await self.ensure_indexes()
+        doc = {
+            "message_id": int(message_id),
+            "owner_id": int(owner_id),
+            "file_name": file_name,
+            "file_size": file_size,
+            "mime_type": mime_type,
+            "unique_id": unique_id,
+            "token": token,
+            "short_slug": short_slug,
+            "access_count": 0,
+            "created_at": UTC_NOW(),
+            "expires_at": expires_at,
+        }
+        await self.files.update_one({"message_id": int(message_id)}, {"$set": doc}, upsert=True)
+        await self.users.update_one(
+            {"id": int(owner_id)},
+            {
+                "$inc": {
+                    "stats.uploads": 1,
+                    "stats.bytes_uploaded": file_size,
+                },
+                "$set": {"last_seen_at": UTC_NOW()},
+            },
+        )
+
+    async def touch_file_access(self, message_id: int, *, bytes_served: int = 0) -> None:
+        await self.ensure_indexes()
+        update = {"$inc": {"access_count": 1}}
+        if bytes_served:
+            update["$inc"].update({"bytes_served": bytes_served})
+        await self.files.update_one({"message_id": int(message_id)}, update)
+
+    async def get_file_by_token(self, *, message_id: int, token: str) -> Optional[Dict[str, Any]]:
+        await self.ensure_indexes()
+        return await self.files.find_one({"message_id": int(message_id), "token": token})
+
+    async def create_short_slug(
+        self,
+        slug: str,
+        *,
+        message_id: int,
+        token: str,
+        expires_at: datetime.datetime,
+    ) -> None:
+        await self.ensure_indexes()
+        await self.shortlinks.update_one(
+            {"slug": slug},
+            {
+                "$set": {
+                    "message_id": int(message_id),
+                    "token": token,
+                    "expires_at": expires_at,
+                    "created_at": UTC_NOW(),
+                }
+            },
+            upsert=True,
+        )
+
+    async def resolve_short_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+        await self.ensure_indexes()
+        return await self.shortlinks.find_one({"slug": slug})
+
+    async def get_recent_files(self, owner_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+        await self.ensure_indexes()
+        cursor = (
+            self.files.find({"owner_id": int(owner_id)})
+            .sort("created_at", -1)
+            .limit(limit)
+        )
+        return [doc async for doc in cursor]
+
+    # ------------------------------------------------------------------
+    # Broadcast helpers
+    # ------------------------------------------------------------------
+    async def iter_active_users(self, batch_size: int = 500) -> AsyncIterator[List[int]]:
+        await self.ensure_indexes()
+        cursor = self.users.find({"status": {"$ne": "banned"}}, projection={"id": 1})
+        batch: List[int] = []
+        async for doc in cursor:
+            batch.append(int(doc["id"]))
+            if len(batch) >= batch_size:
+                yield batch
+                batch = []
+        if batch:
+            yield batch
+
+    async def increment_broadcast_stats(self, user_id: int, success: bool) -> None:
+        await self.ensure_indexes()
+        field = "stats.broadcast_success" if success else "stats.broadcast_failures"
+        await self.users.update_one({"id": int(user_id)}, {"$inc": {field: 1}})
+
+    # ------------------------------------------------------------------
+    # Analytics
+    # ------------------------------------------------------------------
+    async def store_audit_event(self, event: str, *, payload: Dict[str, Any]) -> None:
+        await self.ensure_indexes()
+        await self.audit.insert_one(
+            {
+                "event": event,
+                "payload": payload,
+                "created_at": UTC_NOW(),
+            }
+        )
+
+    async def get_admin_snapshot(self) -> Dict[str, Any]:
+        await self.ensure_indexes()
+        total_users = await self.users.count_documents({})
+        active_users = await self.users.count_documents({"status": {"$ne": "banned"}})
+        banned_users = await self.users.count_documents({"status": "banned"})
+        total_files = await self.files.count_documents({})
+        expiring = await self.files.count_documents(
+            {"expires_at": {"$lt": UTC_NOW() + datetime.timedelta(hours=6)}}
+        )
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "banned_users": banned_users,
+            "total_files": total_files,
+            "expiring_soon": expiring,
+        }
