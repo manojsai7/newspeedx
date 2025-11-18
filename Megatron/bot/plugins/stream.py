@@ -45,21 +45,23 @@ def detect_type(m: Message):
 async def media_receive_handler(c: Client, m: Message):
     # Log to verify this handler is triggered
     logging.debug(f"[PRIVATE] Received media from user {m.from_user.id} - {m.from_user.first_name}")
-    if not await db.is_user_exist(m.from_user.id):
-        await db.add_user(m.from_user.id)
+    _, created = await db.ensure_user(m.from_user)
+    if created:
         await c.send_message(
             Var.BIN_CHANNEL,
             f"#NEW_USER: \n\nNew User [{m.from_user.first_name}](tg://user?id={m.from_user.id}) Started the bot."
         )
+    else:
+        await db.mark_user_seen(m.from_user.id)
     
     # Check force subscribe (dynamic or static)
-    fsub_channel = await db.get_fsub_channel()
+    fsub_channel = await db.get_force_subscribe_channel()
     if fsub_channel is None:
         fsub_channel = Var.UPDATES_CHANNEL
     
     if fsub_channel:
         fsub = await force_subscribe(c, m)
-        if fsub == 400:
+        if fsub != 200:
             return    
     try:
         file_size = None

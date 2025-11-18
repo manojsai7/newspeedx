@@ -3,6 +3,7 @@ import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import motor.motor_asyncio
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 
 UTC_NOW = datetime.datetime.utcnow
@@ -46,7 +47,8 @@ class Database:
             if self._indexes_ready:
                 return
 
-            await self.users.create_index("id", unique=True)
+            await self._drain_user_duplicates()
+            await self._ensure_user_id_index()
             await self.users.create_index([("status", 1)])
             await self.users.create_index([("last_seen_at", -1)])
 
@@ -170,6 +172,52 @@ class Database:
         await self.ensure_indexes()
         doc = await self.users.find_one({"id": int(user_id)}, {"settings": 1})
         return doc.get("settings", {}) if doc else {}
+
+    async def _drain_user_duplicates(self) -> None:
+        while True:
+            removed = await self._dedupe_users_by_id()
+            if removed == 0:
+                return
+
+    async def _dedupe_users_by_id(self) -> int:
+        pipeline = [
+            {"$group": {"_id": "$id", "ids": {"$push": "$_id"}, "count": {"$sum": 1}}},
+            {"$match": {"count": {"$gt": 1}}},
+        ]
+        cursor = self.users.aggregate(pipeline)
+        removed_total = 0
+        async for entry in cursor:
+            object_ids = list(entry.get("ids", []))
+            if len(object_ids) <= 1:
+                continue
+            _, *duplicates = object_ids
+            if duplicates:
+                result = await self.users.delete_many({"_id": {"$in": duplicates}})
+                removed_total += result.deleted_count
+        return removed_total
+
+    async def _ensure_user_id_index(self) -> None:
+        info = await self.users.index_information()
+        existing = info.get("id_1")
+        if existing and existing.get("unique"):
+            return
+        if existing:
+            try:
+                await self.users.drop_index("id_1")
+            except PyMongoError:
+                pass
+        try:
+            await self.users.create_index("id", unique=True)
+        except (DuplicateKeyError, PyMongoError) as exc:
+            if getattr(exc, "code", None) == 11000 or isinstance(exc, DuplicateKeyError):
+                await self._drain_user_duplicates()
+                try:
+                    await self.users.drop_index("id_1")
+                except PyMongoError:
+                    pass
+                await self.users.create_index("id", unique=True)
+            else:
+                raise
 
     async def total_users_count(self) -> int:
         await self.ensure_indexes()

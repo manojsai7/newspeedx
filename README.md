@@ -233,6 +233,7 @@ Optionally configure in Koyeb:
 - If you see this, the bot auto-detects it!
 
 **Method 3: From Environment Tab**
+
 - Koyeb → Service → Environment
 - Look for `KOYEB_PUBLIC_DOMAIN` (auto-injected by Koyeb)
 
