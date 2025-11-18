@@ -1,5 +1,7 @@
 import asyncio
 
+from collections import defaultdict
+
 from pyrogram import Client
 from pyrogram.errors import FloodWait
 
@@ -26,13 +28,12 @@ async def initialize_clients():
     
     if ListenerTypes:
         if not hasattr(StreamBot, 'listeners'):
-            StreamBot.listeners = {}
-        elif not isinstance(StreamBot.listeners, dict):
-            StreamBot.listeners = {}
+            StreamBot.listeners = defaultdict(list)
+        elif not isinstance(StreamBot.listeners, defaultdict):
+            StreamBot.listeners = defaultdict(list, dict(StreamBot.listeners))
             
         for listener_type in ListenerTypes:
-            if listener_type not in StreamBot.listeners:
-                StreamBot.listeners[listener_type] = {}  # DICT not list!
+            StreamBot.listeners[listener_type]  # access ensures key exists
     
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
@@ -53,13 +54,12 @@ async def initialize_clients():
         # Initialize pyromod listeners for each client instance
         if ListenerTypes:
             if not hasattr(instance, 'listeners'):
-                instance.listeners = {}
-            elif not isinstance(instance.listeners, dict):
-                instance.listeners = {}
-                
+                instance.listeners = defaultdict(list)
+            elif not isinstance(instance.listeners, defaultdict):
+                instance.listeners = defaultdict(list, dict(instance.listeners))
+
             for listener_type in ListenerTypes:
-                if listener_type not in instance.listeners:
-                    instance.listeners[listener_type] = {}  # DICT not list!
+                instance.listeners[listener_type]
         
         try:
             multi_clients[client_id] = await instance.start()

@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from pyrogram import Client
 
 from ..vars import Var
@@ -8,8 +10,10 @@ _original_client_init = Client.__init__
 def _patched_client_init(self, *args, **kwargs):
     _original_client_init(self, *args, **kwargs)
     # Ensure listeners attribute exists and is a dict
-    if not hasattr(self, 'listeners'):
-        self.listeners = {}
+        self.listeners = defaultdict(list)
+        elif not isinstance(self.listeners, defaultdict):
+        # convert existing structure to defaultdict(list)
+        self.listeners = defaultdict(list, getattr(self, 'listeners', {}))
 
 Client.__init__ = _patched_client_init
 
@@ -49,14 +53,13 @@ if pyromod_available:
     if ListenerTypes:
         # Ensure listeners is a dict
         if not hasattr(StreamBot, 'listeners'):
-            StreamBot.listeners = {}
-        elif not isinstance(StreamBot.listeners, dict):
-            StreamBot.listeners = {}
+            StreamBot.listeners = defaultdict(list)
+        elif not isinstance(StreamBot.listeners, defaultdict):
+            StreamBot.listeners = defaultdict(list, dict(StreamBot.listeners))
         
         # Initialize each listener type as empty dict
         for listener_type in ListenerTypes:
-            if listener_type not in StreamBot.listeners:
-                StreamBot.listeners[listener_type] = {}
+            StreamBot.listeners[listener_type]
         print(f"[Pyromod] Initialized {len(StreamBot.listeners)} listener types as dicts")
 
 multi_clients = {}
