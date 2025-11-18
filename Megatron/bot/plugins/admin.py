@@ -130,7 +130,7 @@ async def ban_user_command(c: Client, m: Message):
                 f"**User ID:** `{user_id}`\n"
                 f"**Name:** {user_name}\n"
                 f"**Reason:** {reason}\n"
-                f"**Banned by:** {m.from_user.mention(style='md')}\n\n"
+                f"**Banned by:** [{m.from_user.first_name}](tg://user?id={m.from_user.id})\n\n"
                 f"User has been banned from the bot{channel_info}.",
                 parse_mode=enums.ParseMode.MARKDOWN
             )
@@ -243,7 +243,7 @@ async def unban_user_command(c: Client, m: Message):
                 f"✅ **User Unbanned Successfully!**\n\n"
                 f"**User ID:** `{user_id}`\n"
                 f"**Name:** {user_name}\n"
-                f"**Unbanned by:** {m.from_user.mention(style='md')}\n\n"
+                f"**Unbanned by:** [{m.from_user.first_name}](tg://user?id={m.from_user.id})\n\n"
                 f"User can now use the bot{channel_info}.",
                 parse_mode=enums.ParseMode.MARKDOWN
             )

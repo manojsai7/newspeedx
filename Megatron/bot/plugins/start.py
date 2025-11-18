@@ -63,15 +63,15 @@ async def start_handler(bot, message: Message) -> None:
     if fsub_result != 200:
         return
 
-    stats = user_doc.get("stats", {})
-    uploads = stats.get("uploads", 0)
-    downloads = stats.get("downloads", 0)
+    stats = user_doc.get('stats', {})
+    uploads = stats.get('uploads', 0)
+    downloads = stats.get('downloads', 0)
 
     text = (
-        f"Hey {message.from_user.mention(style='md')} 🙋‍♂️\n\n"
+        f"Hey [{message.from_user.first_name}](tg://user?id={message.from_user.id}) 🙋‍♂️\n\n"
         "• Send me a file to receive a secure streaming/download link.\n"
-        "• Use /settings to tweak link lifetime, passwords, and privacy.\n"
-        "• Use /myfiles to revisit your recent uploads.\n\n"
+        "• Use /myfiles to revisit your recent uploads.\n"
+        "• Use /settings to manage your preferences.\n\n"
         f"📊 You have shared **{uploads}** files and generated **{downloads}** downloads so far."
     )
 
@@ -123,3 +123,159 @@ async def help_handler(bot, message: Message) -> None:
         disable_web_page_preview=True,
         reply_markup=_home_keyboard(),
     )
+
+
+@StreamBot.on_message(filters.command("myfiles") & filters.private)
+async def myfiles_handler(bot, message: Message) -> None:
+    """Show user's recent uploaded files"""
+    try:
+        await db.ensure_user(message.from_user)
+    except Exception as e:
+        logging.error(f"[DATABASE] Failed to ensure user in myfiles handler: {e}")
+        await message.reply_text(
+            "⚠️ Database error. Please try again.",
+            disable_web_page_preview=True,
+        )
+        return
+    
+    # Security: Check if user is banned
+    try:
+        is_banned = await db.is_user_banned(message.from_user.id)
+        if is_banned:
+            await message.reply_text(
+                "🚫 **You are banned from using this bot.**\n\n"
+                "Contact the bot owner if you believe this is a mistake.",
+                disable_web_page_preview=True,
+            )
+            return
+    except Exception as e:
+        logging.error(f"[SECURITY] Failed to check ban status in myfiles handler: {e}")
+    
+    # Check force subscribe
+    fsub_result = await force_subscribe(bot, message)
+    if fsub_result == 400:
+        return
+    
+    try:
+        # Get recent files
+        recent_files = await db.get_recent_files(message.from_user.id, limit=10)
+        
+        if not recent_files:
+            await message.reply_text(
+                "📂 **Your Files**\n\n"
+                "You haven't uploaded any files yet.\n\n"
+                "Send me a file to get started!",
+                parse_mode=enums.ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
+            return
+        
+        # Format file list
+        files_text = "📂 **Your Recent Files**\n\n"
+        
+        from datetime import datetime
+        from Megatron.utils.human_readable import humanbytes
+        
+        for idx, file_doc in enumerate(recent_files, 1):
+            file_name = file_doc.get('file_name', 'Unknown')
+            file_size = humanbytes(file_doc.get('file_size', 0))
+            created_at = file_doc.get('created_at')
+            access_count = file_doc.get('access_count', 0)
+            message_id = file_doc.get('message_id')
+            token = file_doc.get('token')
+            
+            if isinstance(created_at, datetime):
+                created_str = created_at.strftime('%Y-%m-%d %H:%M')
+            else:
+                created_str = 'Unknown'
+            
+            files_text += (
+                f"**{idx}. {file_name[:30]}**\n"
+                f"   Size: `{file_size}` | Views: {access_count}\n"
+                f"   Uploaded: {created_str}\n"
+            )
+            
+            # Add link if available
+            if message_id and token:
+                from urllib.parse import quote_plus
+                link = f"{Var.URL}{message_id}/{quote_plus(file_name)}?hash={token[:6]}"
+                files_text += f"   [📥 Download]({link})\n"
+            
+            files_text += "\n"
+        
+        files_text += "\n💡 Showing your 10 most recent files."
+        
+        await message.reply_text(
+            files_text,
+            parse_mode=enums.ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
+        
+    except Exception as e:
+        logging.error(f"[ERROR] Failed to get user files: {e}", exc_info=True)
+        await message.reply_text(
+            "❌ **Error retrieving your files.**\n\n"
+            "Please try again later.",
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+
+
+@StreamBot.on_message(filters.command("settings") & filters.private)
+async def settings_handler(bot, message: Message) -> None:
+    """Show user settings"""
+    try:
+        await db.ensure_user(message.from_user)
+    except Exception as e:
+        logging.error(f"[DATABASE] Failed to ensure user in settings handler: {e}")
+        await message.reply_text(
+            "⚠️ Database error. Please try again.",
+            disable_web_page_preview=True,
+        )
+        return
+    
+    # Security: Check if user is banned
+    try:
+        is_banned = await db.is_user_banned(message.from_user.id)
+        if is_banned:
+            await message.reply_text(
+                "🚫 **You are banned from using this bot.**\n\n"
+                "Contact the bot owner if you believe this is a mistake.",
+                disable_web_page_preview=True,
+            )
+            return
+    except Exception as e:
+        logging.error(f"[SECURITY] Failed to check ban status in settings handler: {e}")
+    
+    # Check force subscribe
+    fsub_result = await force_subscribe(bot, message)
+    if fsub_result == 400:
+        return
+    
+    # Get user preferences
+    try:
+        prefs = await db.get_user_preferences(message.from_user.id)
+        
+        settings_text = (
+            "⚙️ **Your Settings**\n\n"
+            f"🔗 Short Links: {'✅ Enabled' if prefs.get('short_links', True) else '❌ Disabled'}\n"
+            f"🔒 Password Protection: {'✅ Enabled' if prefs.get('password_required', False) else '❌ Disabled'}\n"
+            f"⏱ Link Lifetime: {prefs.get('link_ttl', 'Default (12 hours)')}\n\n"
+            "💡 More settings coming soon!"
+        )
+        
+        from Megatron.bot.plugins.start import _home_keyboard
+        
+        await message.reply_text(
+            settings_text,
+            parse_mode=enums.ParseMode.MARKDOWN,
+            reply_markup=_home_keyboard(),
+            disable_web_page_preview=True,
+        )
+        
+    except Exception as e:
+        logging.error(f"[ERROR] Failed to get user settings: {e}", exc_info=True)
+        await message.reply_text(
+            "❌ **Error retrieving your settings.**\n\n"
+            "Please try again later.",
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )

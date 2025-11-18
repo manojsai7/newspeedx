@@ -1,3 +1,4 @@
+import logging
 from pyrogram import enums, filters
 from pyrogram.errors import RPCError
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
@@ -65,21 +66,46 @@ async def button(bot, cmd: CallbackQuery) -> None:
 
     if data.startswith("settings:"):
         action = data.split(":", 1)[1]
-        await db.ensure_user(cmd.from_user)
+        
+        # Ensure user exists in database
+        try:
+            await db.ensure_user(cmd.from_user)
+        except Exception as e:
+            logging.error(f"[DATABASE] Failed to ensure user in settings callback: {e}")
+            await cmd.answer("Database error. Please try again.", show_alert=True)
+            return
 
         if action == "open":
-            await cmd.message.edit_text(
-                "⚙️ **Personal settings**\nMore controls are coming soon – stay tuned!",
-                parse_mode=enums.ParseMode.MARKDOWN,
-                reply_markup=_settings_keyboard(),
-            )
+            try:
+                await cmd.message.edit_text(
+                    "⚙️ **Personal Settings**\n\n"
+                    "Configure your bot preferences here.\n\n"
+                    "🔁 **Link Lifetime:** Set how long links stay active\n"
+                    "🔒 **Password:** Add password protection to files\n\n"
+                    "💡 More options coming soon!",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=_settings_keyboard(),
+                )
+                await cmd.answer("Settings opened", show_alert=False)
+            except Exception as e:
+                logging.error(f"[CALLBACK] Failed to open settings: {e}")
+                await cmd.answer("Failed to open settings", show_alert=True)
         elif action == "back":
-            await cmd.message.edit_text(
-                "Use /start to send files or manage your uploads.",
-                reply_markup=_home_keyboard(),
-            )
+            try:
+                await cmd.message.edit_text(
+                    "👋 **Welcome back!**\n\n"
+                    "• Send me a file to get a download link\n"
+                    "• Use /myfiles to see your uploads\n"
+                    "• Use /settings to configure preferences",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=_home_keyboard(),
+                )
+                await cmd.answer("Back to home", show_alert=False)
+            except Exception as e:
+                logging.error(f"[CALLBACK] Failed to go back: {e}")
+                await cmd.answer("Failed to go back", show_alert=True)
         else:
-            await cmd.answer("Settings panel is under construction.", show_alert=False)
+            await cmd.answer("⚠️ This feature is under development!", show_alert=True)
         return
 
     if data.startswith("ban_"):

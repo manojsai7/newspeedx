@@ -122,29 +122,39 @@ class Database:
             },
         }
         if existing:
-            await self.users.update_one(
-                {"id": user_id},
-                {
-                    "$set": {
+            try:
+                await self.users.update_one(
+                    {"id": user_id},
+                    {
+                        "$set": {
+                            "first_name": payload["first_name"],
+                            "last_seen_at": UTC_NOW(),
+                            "username": payload["username"],
+                        }
+                    },
+                )
+                existing.update(
+                    {
                         "first_name": payload["first_name"],
                         "last_seen_at": UTC_NOW(),
                         "username": payload["username"],
                     }
-                },
-            )
-            existing.update(
-                {
-                    "first_name": payload["first_name"],
-                    "last_seen_at": UTC_NOW(),
-                    "username": payload["username"],
-                }
-            )
-            return existing, False
+                )
+                logging.debug(f"[DATABASE] Updated existing user {user_id}")
+                return existing, False
+            except Exception as e:
+                logging.error(f"[DATABASE] Failed to update user {user_id}: {e}")
+                raise
 
-        payload["joined_at"] = UTC_NOW()
-        payload["last_seen_at"] = payload["joined_at"]
-        await self.users.insert_one(payload)
-        return payload, True
+        try:
+            payload["joined_at"] = UTC_NOW()
+            payload["last_seen_at"] = payload["joined_at"]
+            await self.users.insert_one(payload)
+            logging.info(f"[DATABASE] Created new user {user_id} - {payload['first_name']}")
+            return payload, True
+        except Exception as e:
+            logging.error(f"[DATABASE] Failed to create user {user_id}: {e}")
+            raise
 
     async def mark_user_seen(self, user_id: int) -> None:
         await self.ensure_indexes()
