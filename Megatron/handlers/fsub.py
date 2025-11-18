@@ -4,7 +4,6 @@ from pyrogram import enums
 from pyrogram.errors import FloodWait, UserNotParticipant
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from Megatron.utils.callbacks import *  # noqa: F401 - legacy callback data
 from Megatron.utils.database import Database
 from Megatron.vars import Var
 

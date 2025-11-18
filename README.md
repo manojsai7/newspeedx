@@ -61,6 +61,14 @@ Copy `.env.example` to `.env` (or configure your hosting provider) and fill in t
 | `MAX_LOGIN_FLOODWAIT` | `900` | Maximum flood wait (seconds) tolerated at login time |
 | `LOGIN_FLOODWAIT_PADDING` | `5` | Extra seconds added to flood waits to stay safe |
 
+### Practical examples
+
+- `APP_SECRET` — Set a random 32+ character string whenever your bot is exposed to the public internet. Every download link is signed with this secret; if it leaks, regenerate it to invalidate all old links instantly.
+- `LINK_TTL_SECONDS` / `SHORT_LINK_TTL_SECONDS` — Shorten these (for example, `3600` / `86400`) when you want links to auto-expire within an hour or a day. Lengthen them for trusted private deployments that need week-long access.
+- `USER_RATE_LIMIT` & `USER_RATE_WINDOW` — Limit how many actions a user can trigger in the given window. Keep the default `12` per `60` seconds for light use, drop it (e.g., `6` per `60`) on free tiers, or increase it for paid users.
+- `USER_DAILY_QUOTA` — Set to a non-zero number (e.g., `100`) to cap uploads/downloads a user can perform in 24 hours. Leave it at `0` to disable quotas entirely.
+- `MAX_FILE_SIZE_MB` — Align it with the storage you can afford. Lower it for lightweight media bots; raise cautiously if you store larger archives in the channel.
+
 The runtime uses [PyroBlack 2.6.x](https://pypi.org/project/pyroblack/) (a maintained Pyrogram 2.x fork) so Telegram's 64-bit identifiers and recent API changes are handled without hacks.
 
 ## Feature Highlights
