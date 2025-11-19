@@ -220,6 +220,93 @@ Optionally configure in Koyeb:
 | "BIN_CHANNEL validation failed" | Make sure bot is admin in the channel with "Post Messages" permission |
 | "Invalid hash" error | Your `BIN_CHANNEL` ID is incorrect or bot can't access the channel |
 | Bot doesn't respond | Check `BOT_TOKEN` is valid. Regenerate with @BotFather if needed |
+| Bot goes to deep sleep | Adjust `PING_INTERVAL` to less than 300 seconds (e.g., 240) |
+
+### Managing Environment Variables in Koyeb
+
+#### Updating Variables After Deployment
+
+**Method 1: Via Koyeb Dashboard**
+1. Go to [Koyeb Dashboard](https://app.koyeb.com)
+2. Select your service
+3. Click on **"Settings"** tab
+4. Scroll to **"Environment Variables"** section
+5. Click **"Edit"** button
+6. Add/modify/delete variables as needed
+7. Click **"Save"** - This will automatically redeploy your app
+
+**Method 2: Via Koyeb CLI**
+```bash
+# Install Koyeb CLI
+npm install -g @koyeb/cli
+
+# Login
+koyeb login
+
+# Update environment variable
+koyeb service update <service-name> --env KEY=VALUE
+
+# Example: Update ping interval
+koyeb service update megatron-bot --env PING_INTERVAL=240
+```
+
+#### Common Variable Updates
+
+**Change Bot Token:**
+```bash
+# In Koyeb Dashboard
+BOT_TOKEN=new_token_from_botfather
+```
+
+**Update Database URL:**
+```bash
+DATABASE_URL=mongodb+srv://new_connection_string
+```
+
+**Change Ping Interval (Prevent Sleep):**
+```bash
+# Koyeb sleeps after 5 minutes (300s), so ping every 4 minutes
+PING_INTERVAL=240
+```
+
+**Update Channel IDs:**
+```bash
+BIN_CHANNEL=-1001234567890
+UPDATES_CHANNEL=-1009876543210
+```
+
+**Enable/Disable Features:**
+```bash
+BROADCAST_AS_COPY=true
+HAS_SSL=true
+NO_PORT=true
+```
+
+#### Important Notes
+
+- ⚠️ **Changing environment variables triggers automatic redeployment** (app will restart)
+- 💡 **Variables are encrypted** and stored securely by Koyeb
+- 🔄 **Changes take 2-3 minutes** to reflect (build + deploy time)
+- 📝 **No need to push code** to GitHub when only changing variables
+- ⚡ **Instant updates** - no manual restart needed after save
+
+#### Best Practices
+
+1. **Never commit secrets** to your repository (`.env` files)
+2. **Use strong random strings** for `APP_SECRET`
+3. **Test in staging** before updating production variables
+4. **Document your changes** in deployment notes
+5. **Keep backups** of critical variable values
+
+#### Viewing Current Variables
+
+**Via Koyeb Dashboard:**
+- Service → Settings → Environment Variables → View
+
+**Via Koyeb CLI:**
+```bash
+koyeb service get <service-name> --output json | jq '.env'
+```
 
 ### Finding Your Koyeb App Domain
 

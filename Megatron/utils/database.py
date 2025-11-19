@@ -466,3 +466,18 @@ class Database:
             "total_files": total_files,
             "expiring_soon": expiring,
         }
+    
+    async def get_total_users(self) -> int:
+        """Get total user count"""
+        await self.ensure_indexes()
+        return await self.users.count_documents({})
+    
+    async def get_total_files(self) -> int:
+        """Get total file count"""
+        await self.ensure_indexes()
+        return await self.files.count_documents({})
+    
+    async def get_banned_count(self) -> int:
+        """Get banned user count"""
+        await self.ensure_indexes()
+        return await self.users.count_documents({"status": "banned"})

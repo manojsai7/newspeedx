@@ -11,3 +11,5 @@ tgcrypto
 pyroblack==2.6.0
 pytest
 pytest-aiohttp
+# System monitoring for stats
+psutil>=5.9.0

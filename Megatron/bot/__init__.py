@@ -1,4 +1,5 @@
 import logging
+import time
 from pyrogram import Client
 
 from ..vars import Var
@@ -8,6 +9,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Track bot start time for uptime calculation
+start_time = time.time()
 
 StreamBot = Client(
     name=Var.SESSION_NAME,
