@@ -13,6 +13,10 @@ db = Database(Var.DATABASE_URL, Var.SESSION_NAME)
 
 async def force_subscribe(bot, cmd):
     """Ensure user joined configured updates channel before proceeding."""
+    # Skip fsub check for owner
+    if cmd.from_user.id == Var.OWNER_ID:
+        return 200
+    
     try:
         await db.ensure_user(cmd.from_user)
     except Exception as e:
@@ -45,7 +49,6 @@ async def force_subscribe(bot, cmd):
 
     # If no force subscribe channel configured, allow access
     if fsub_channel is None:
-        logging.info(f"[FSUB] No force subscribe channel configured, allowing user {cmd.from_user.id}")
         return 200
 
     try:
@@ -70,13 +73,11 @@ async def force_subscribe(bot, cmd):
             )
             return 400
         await db.mark_user_fsub_state(cmd.from_user.id, "clear", channel=fsub_channel)
-        logging.info(f"[FSUB] User {cmd.from_user.id} is member of {fsub_channel}")
         return 200
     except UserNotParticipant:
         fallback_slug = str(fsub_channel).lstrip("@") if isinstance(fsub_channel, str) else ""
         join_url = invite_link.invite_link if invite_link else f"https://t.me/{fallback_slug}" if fallback_slug else "https://t.me"
         await db.mark_user_fsub_state(cmd.from_user.id, "pending", channel=fsub_channel)
-        logging.info(f"[FSUB] User {cmd.from_user.id} not member of {fsub_channel}, sending join prompt")
         await bot.send_message(
             cmd.from_user.id,
             "⚠️ **Join our updates channel to unlock downloads.**\n\nAfter joining, tap refresh!",

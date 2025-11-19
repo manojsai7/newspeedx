@@ -17,7 +17,6 @@ def _home_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton("✵ Updates Channel ✵", url="https://t.me/+uW4Saio7cmYwNjk1"),
                 InlineKeyboardButton("😊 Donate 😊", url="https://t.me/TG_FatherBoT?start=donate"),
             ],
-            [InlineKeyboardButton("⚙️ Settings", callback_data="settings:open")],
         ]
     )
 
@@ -75,14 +74,11 @@ async def start_handler(bot, message: Message) -> None:
         "🔗 **Smart Links** - Secure, time-limited download URLs\n"
         "⚡ **Direct Streaming** - No downloads needed, stream directly\n"
         "🔐 **Password Protection** - Optional password-secured links\n"
-        "📊 **Analytics** - Track your uploads and downloads\n"
         "🚀 **High Speed** - Lightning-fast file processing\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "📋 **Your Commands:**\n\n"
-        "• /myfiles - View your recent uploads\n"
         "• /help - Detailed usage guide\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📈 **Your Stats:** {uploads} files shared • {downloads} downloads generated\n\n"
         "💡 Just send me any file to get started!"
     )
 
@@ -122,10 +118,7 @@ async def help_handler(bot, message: Message) -> None:
         "1. Upload a file or forward from another chat.\n"
         "2. Receive one secure link (full) and one short link.\n"
         "3. Share links safely – they expire automatically.\n\n"
-        "Useful commands:\n"
-        "• /settings – manage personal preferences\n"
-        "• /myfiles – list your recent uploads\n"
-        "• /help – display this message again"
+        "💡 Just send me any file to get started!"
     )
 
     await message.reply_text(
