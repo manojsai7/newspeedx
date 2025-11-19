@@ -27,9 +27,9 @@ async def start_services():
     )
     await initialize_clients()
     print("----------------------------- DONE -----------------------------")
-    if Var.ON_HEROKU:
+    if Var.ON_HEROKU or Var.ON_KOYEB:
         print("------------------ Starting Keep Alive Service ------------------")
-        print()
+        print(f"                        ping interval =>> {Var.PING_INTERVAL}s")
         asyncio.create_task(utils.ping_server())
     print("-------------------- Initalizing Web Server --------------------")
     app = web.AppRunner(await web_server())

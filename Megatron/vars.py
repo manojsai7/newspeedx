@@ -77,7 +77,7 @@ class Var(object):
     BIN_CHANNEL = _parse_channel(_require("BIN_CHANNEL"))  # mandatory for uploads
     PORT = _as_int(_optional("PORT", "8000"), 8000)
     BIND_ADDRESS = _optional("WEB_SERVER_BIND_ADDRESS", "0.0.0.0")
-    PING_INTERVAL = _as_int(_optional("PING_INTERVAL", "1200"), 1200)
+    PING_INTERVAL = _as_int(_optional("PING_INTERVAL", "240"), 240)  # Default 4 minutes (Koyeb sleeps after 5min)
     HAS_SSL = _as_bool(_optional("HAS_SSL"))
     OWNER_ID = _as_int(_require('OWNER_ID'))
     NO_PORT = _as_bool(_optional("NO_PORT"))
