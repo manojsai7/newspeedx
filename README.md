@@ -10,6 +10,11 @@ Megatron File Stream Telegram Bot
 
 Copy `.env.example` to `.env` (or configure your hosting provider) and fill in the values listed below. The bot will refuse to boot if any required variable is missing.
 
+📚 **Quick Links:**
+- [ENV Variables Guide](ENV_VARIABLES_GUIDE.md) - Complete configuration guide with examples
+- [Koyeb Deployment](KOYEB_SETUP.md) - Step-by-step Koyeb setup
+- [Environment Templates](#environment-file-templates) - Ready-to-use `.env` templates
+
 ### Required environment variables
 
 | Variable | Description |
@@ -30,11 +35,21 @@ Copy `.env.example` to `.env` (or configure your hosting provider) and fill in t
 | `SESSION_NAME` | `AvishkarPatil` | Custom Pyrogram session file name |
 | `WORKERS` | `6` | Number of Pyrogram worker threads |
 | `SLEEP_THRESHOLD` | `60` | Seconds to sleep when Telegram returns slow flood waits |
-| `PING_INTERVAL` | `1200` | Interval (seconds) for keep-alive pings |
+| `PING_INTERVAL` | `240` | Interval (seconds) for keep-alive pings (Koyeb: 240 recommended) |
 | `BROADCAST_AS_COPY` | `false` | Set `true` to send broadcasts as copies instead of forwarded messages |
 | `UPDATES_CHANNEL` | unset | Legacy fallback for force-subscribe; `/fsub` command stored in DB overrides this |
 | `BANNED_CHANNELS` | unset | Space separated list of channel IDs to ignore when forwarding |
 | `MULTI_CLIENT` | `false` | Experimental multi-session mode for high volume deployments |
+
+### 🎨 Customizable Links & Branding
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `UPDATES_CHANNEL_LINK` | `https://t.me/+_J90-7N-lk9iNDZl` | Link shown in "Updates Channel" button throughout the bot |
+| `DONATION_LINK` | `https://t.me/TG_FatherBoT?start=donate` | Link shown in "Donate" button throughout the bot |
+| `SUPPORT_LINK` | `https://t.me/+_J90-7N-lk9iNDZl` | Support group/channel link for help messages |
+
+> 💡 **New Feature**: Easily customize all channel/donation links without modifying code! Perfect for rebranding or multiple bot instances.
 
 ### Security, link, and quota controls
 
@@ -381,3 +396,36 @@ Control force subscribe without restarting the bot! Requires `DATABASE_URL` to b
   - Ban users permission
   - Invite users permission
 - `DATABASE_URL` must be configured
+
+---
+
+## 📁 Environment File Templates
+
+We provide ready-to-use environment variable templates:
+
+### 1. **`.env.example`** - Complete Template
+Full template with all variables documented and categorized. Perfect for understanding all options.
+
+### 2. **`koyeb.env.example`** - Koyeb Optimized
+Simplified template specifically for Koyeb deployment. Includes only essential and commonly used variables.
+
+### How to Use:
+
+**For Koyeb** (Recommended Method):
+1. Copy `koyeb.env.example` and rename to `.env`
+2. Fill in your values (API_ID, BOT_TOKEN, etc.)
+3. In Koyeb Dashboard:
+   - Service → Settings → Environment Variables
+   - Select **"File"** option
+   - Upload your `.env` file
+   - File Format: **"Plain Text"** or **".env"**
+4. Deploy!
+
+**For Local/Docker**:
+1. Copy `.env.example` to `.env`
+2. Fill in all required values
+3. Run: `python -m Megatron`
+
+📚 **For detailed configuration help, see [ENV_VARIABLES_GUIDE.md](ENV_VARIABLES_GUIDE.md)**
+
+---

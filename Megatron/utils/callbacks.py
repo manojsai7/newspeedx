@@ -15,8 +15,8 @@ def _home_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("✵ Updates Channel ✵", url="https://t.me/+uW4Saio7cmYwNjk1"),
-                InlineKeyboardButton("😊 Donate 😊", url="https://t.me/TG_FatherBoT?start=donate"),
+                InlineKeyboardButton("✵ Updates Channel ✵", url=Var.UPDATES_CHANNEL_LINK),
+                InlineKeyboardButton("😊 Donate 😊", url=Var.DONATION_LINK),
             ],
         ]
     )

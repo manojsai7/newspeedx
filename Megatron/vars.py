@@ -106,6 +106,12 @@ class Var(object):
     USER_DAILY_QUOTA = _as_int(_optional("USER_DAILY_QUOTA", "0"), 0)
     MAX_FILE_SIZE_MB = _as_int(_optional("MAX_FILE_SIZE_MB", "2048"), 2048)
     UPDATES_CHANNEL = _parse_optional_channel("UPDATES_CHANNEL")
+    
+    # Customizable Links
+    UPDATES_CHANNEL_LINK = _optional("UPDATES_CHANNEL_LINK", "https://t.me/+_J90-7N-lk9iNDZl")
+    DONATION_LINK = _optional("DONATION_LINK", "https://t.me/TG_FatherBoT?start=donate")
+    SUPPORT_LINK = _optional("SUPPORT_LINK", "https://t.me/+_J90-7N-lk9iNDZl")
+    
     BANNED_CHANNELS = list(
         set(
             int(x)
